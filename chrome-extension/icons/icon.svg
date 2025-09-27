@@ -1,0 +1,22 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo circular -->
+  <circle cx="64" cy="64" r="60" fill="#667eea" stroke="#5a6fd8" stroke-width="4"/>
+  
+  <!-- Icono de cámara -->
+  <rect x="40" y="45" width="48" height="38" rx="4" fill="white"/>
+  <rect x="45" y="50" width="38" height="28" rx="2" fill="#667eea"/>
+  
+  <!-- Lente de la cámara -->
+  <circle cx="64" cy="64" r="12" fill="white"/>
+  <circle cx="64" cy="64" r="8" fill="#667eea"/>
+  <circle cx="64" cy="64" r="4" fill="white"/>
+  
+  <!-- Flash -->
+  <rect x="75" y="50" width="6" height="8" rx="1" fill="#FFD700"/>
+  
+  <!-- Icono de notificación -->
+  <circle cx="85" cy="35" r="12" fill="#FF4444"/>
+  <path d="M80 30 L90 30 L88 32 L82 32 Z" fill="white"/>
+  <text x="85" y="40" text-anchor="middle" fill="white" font-size="8" font-weight="bold">!</text>
+</svg>
+

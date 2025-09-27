@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "UniFi Protect Notifications",
+  "version": "1.0.0",
+  "description": "Notificaciones en tiempo real para eventos de UniFi Protect",
+  "permissions": [
+    "notifications",
+    "storage",
+    "background"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://localhost:3000/*",
+    "ws://localhost:3000/*",
+    "wss://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "UniFi Protect Notifications",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+

@@ -1,0 +1,184 @@
+import { WebSocketServer as WSWebSocketServer, WebSocket } from 'ws';
+import { Server } from 'http';
+import jwt from 'jsonwebtoken';
+import { NotificationClient } from '../../domain/notifications/NotificationService';
+
+export interface WebSocketConfig {
+  port: number;
+  jwtSecret: string;
+  corsOrigin: string;
+}
+
+export class WebSocketServer {
+  private wss: WSWebSocketServer;
+  private clients: Map<string, NotificationClient> = new Map();
+  private jwtSecret: string;
+
+  constructor(server: Server, config: WebSocketConfig) {
+    this.jwtSecret = config.jwtSecret;
+    
+    this.wss = new WSWebSocketServer({
+      server,
+      path: '/ws'
+    });
+
+    this.setupWebSocketHandlers();
+  }
+
+  private setupWebSocketHandlers(): void {
+    this.wss.on('connection', (ws: WebSocket, request) => {
+      console.log('Nueva conexión WebSocket intentada');
+
+      // Verificar autenticación
+      const token = this.extractTokenFromRequest(request);
+      if (!token) {
+        ws.close(1008, 'Token de autenticación requerido');
+        return;
+      }
+
+      try {
+        const decoded = jwt.verify(token, this.jwtSecret) as any;
+        const clientId = decoded.clientId;
+
+        const client: NotificationClient = {
+          id: clientId,
+          socket: ws,
+          filters: {},
+          lastSeen: new Date()
+        };
+
+        this.clients.set(clientId, client);
+        console.log(`Cliente ${clientId} conectado`);
+
+        // Enviar mensaje de bienvenida
+        ws.send(JSON.stringify({
+          type: 'connected',
+          clientId: clientId,
+          timestamp: new Date().toISOString()
+        }));
+
+        // Configurar handlers del WebSocket
+        this.setupClientHandlers(client);
+
+      } catch (error) {
+        console.error('Error de autenticación:', error);
+        ws.close(1008, 'Token inválido');
+      }
+    });
+  }
+
+  private extractTokenFromRequest(request: any): string | null {
+    // Buscar token en query parameters o headers
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    return url.searchParams.get('token') || request.headers.authorization?.replace('Bearer ', '');
+  }
+
+  private setupClientHandlers(client: NotificationClient): void {
+    const ws = client.socket;
+
+    ws.on('message', (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString());
+        this.handleClientMessage(client, message);
+      } catch (error) {
+        console.error('Error procesando mensaje del cliente:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      this.clients.delete(client.id);
+      console.log(`Cliente ${client.id} desconectado`);
+    });
+
+    ws.on('error', (error: Error) => {
+      console.error(`Error en WebSocket del cliente ${client.id}:`, error);
+      this.clients.delete(client.id);
+    });
+
+    // Ping/pong para mantener conexión viva
+    ws.on('pong', () => {
+      client.lastSeen = new Date();
+    });
+  }
+
+  private handleClientMessage(client: NotificationClient, message: any): void {
+    switch (message.type) {
+      case 'update_filters':
+        client.filters = message.filters;
+        console.log(`Filtros actualizados para cliente ${client.id}`);
+        break;
+      
+      case 'ping':
+        client.lastSeen = new Date();
+        client.socket.send(JSON.stringify({
+          type: 'pong',
+          timestamp: new Date().toISOString()
+        }));
+        break;
+      
+      default:
+        console.log(`Tipo de mensaje no reconocido: ${message.type}`);
+    }
+  }
+
+  public broadcastEvent(event: any): void {
+    const message = JSON.stringify({
+      type: 'event',
+      data: event,
+      timestamp: new Date().toISOString()
+    });
+
+    this.clients.forEach((client) => {
+      if (this.shouldSendEventToClient(client, event)) {
+        try {
+          client.socket.send(message);
+        } catch (error) {
+          console.error(`Error enviando evento a cliente ${client.id}:`, error);
+          this.clients.delete(client.id);
+        }
+      }
+    });
+  }
+
+  private shouldSendEventToClient(client: NotificationClient, event: any): boolean {
+    // Aplicar filtros del cliente
+    if (!client.filters.enabled) {
+      return false;
+    }
+
+    if (client.filters.types && !client.filters.types.includes(event.type)) {
+      return false;
+    }
+
+    if (client.filters.severity && !client.filters.severity.includes(event.severity)) {
+      return false;
+    }
+
+    if (client.filters.cameras && !client.filters.cameras.includes(event.camera.id)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  public getConnectedClients(): NotificationClient[] {
+    return Array.from(this.clients.values());
+  }
+
+  public removeClient(clientId: string): void {
+    const client = this.clients.get(clientId);
+    if (client) {
+      client.socket.close();
+      this.clients.delete(clientId);
+    }
+  }
+
+  public generateClientToken(clientId: string): string {
+    return jwt.sign(
+      { clientId, iat: Math.floor(Date.now() / 1000) },
+      this.jwtSecret,
+      { expiresIn: '7d' }
+    );
+  }
+}
+

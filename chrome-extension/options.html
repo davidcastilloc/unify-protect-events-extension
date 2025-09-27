@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniFi Protect Notifications - Configuración</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"], input[type="url"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="url"]:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .checkbox-item:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+        }
+
+        .checkbox-item.checked {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.testing {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .camera-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            background: white;
+        }
+
+        .camera-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .camera-item:last-child {
+            border-bottom: none;
+        }
+
+        .camera-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 UniFi Protect Notifications</h1>
+            <p>Configura las notificaciones en tiempo real para tu sistema UniFi Protect</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2>🔗 Conexión al Backend</h2>
+                
+                <div id="connectionStatus" class="status disconnected">
+                    Estado: Desconectado
+                </div>
+
+                <div class="form-group">
+                    <label for="backendUrl">URL del Backend:</label>
+                    <input type="url" id="backendUrl" placeholder="http://localhost:3000">
+                </div>
+
+                <div class="form-group">
+                    <label for="clientId">ID del Cliente:</label>
+                    <input type="text" id="clientId" placeholder="chrome-extension-12345">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enabled" class="toggle-switch">
+                        <span class="slider"></span>
+                        Notificaciones Habilitadas
+                    </label>
+                </div>
+
+                <div class="buttons">
+                    <button id="testConnection" class="btn-warning">Probar Conexión</button>
+                    <button id="refreshCameras" class="btn-secondary">Actualizar Cámaras</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📹 Filtros de Cámaras</h2>
+                
+                <div id="cameraLoading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando cámaras...</p>
+                </div>
+
+                <div id="cameraList" class="camera-list" style="display: none;">
+                    <!-- Las cámaras se cargarán dinámicamente -->
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🔍 Filtros de Eventos</h2>
+                
+                <div class="form-group">
+                    <label>Tipos de Eventos:</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-motion" value="motion">
+                            <label for="filter-motion">Movimiento</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-person" value="person">
+                            <label for="filter-person">Persona</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-vehicle" value="vehicle">
+                            <label for="filter-vehicle">Vehículo</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-package" value="package">
+                            <label for="filter-package">Paquete</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-doorbell" value="doorbell">
+                            <label for="filter-doorbell">Timbre</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-smart-detect" value="smart_detect">
+                            <label for="filter-smart-detect">Detección Inteligente</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Niveles de Severidad:</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-low" value="low">
+                            <label for="filter-low">Baja</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-medium" value="medium">
+                            <label for="filter-medium">Media</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-high" value="high">
+                            <label for="filter-high">Alta</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="filter-critical" value="critical">
+                            <label for="filter-critical">Crítica</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button id="saveConfig" class="btn-primary">Guardar Configuración</button>
+                <button id="resetConfig" class="btn-secondary">Restablecer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>
+
