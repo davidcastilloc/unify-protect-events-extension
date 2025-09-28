@@ -6,29 +6,37 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "start:insecure": "NODE_TLS_REJECT_UNAUTHORIZED=0 node dist/server.js",
+    "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 ts-node-dev --respawn --transpile-only src/server.ts",
     "lint": "eslint src/**/*.ts",
     "test": "jest"
   },
-  "keywords": ["unifi", "protect", "notifications", "chrome-extension"],
+  "keywords": [
+    "unifi",
+    "protect",
+    "notifications",
+    "chrome-extension"
+  ],
   "author": "David",
   "license": "MIT",
   "dependencies": {
-    "ws": "^8.14.2",
-    "unifi-protect": "^4.27.3",
-    "express": "^4.18.2",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "jsonwebtoken": "^9.0.2",
+    "express": "^4.18.2",
     "helmet": "^7.1.0",
-    "winston": "^3.11.0"
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2",
+    "winston": "^3.11.0",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
+    "@types/axios": "^0.9.36",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.10.0",
     "@types/ws": "^8.5.10",
-    "@types/express": "^4.17.21",
-    "@types/cors": "^2.8.17",
-    "@types/jsonwebtoken": "^9.0.5",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.54.0",

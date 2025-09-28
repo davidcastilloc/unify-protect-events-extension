@@ -51,7 +51,7 @@ class UnifiNotificationServer {
   private setupMiddleware(): void {
     this.app.use(helmet());
     this.app.use(cors({
-      origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+      origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
       credentials: true
     }));
     this.app.use(express.json());
@@ -102,9 +102,9 @@ class UnifiNotificationServer {
 
   private setupWebSocketServer(): void {
     const config = {
-      port: parseInt(process.env.PORT || '3000'),
+      port: parseInt(process.env.PORT || '3001'),
       jwtSecret: process.env.JWT_SECRET || 'default-secret',
-      corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+      corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3001'
     };
 
     this.wsServer = new WebSocketServer(this.server, config);
@@ -115,8 +115,7 @@ class UnifiNotificationServer {
     const config = {
       host: process.env.UNIFI_HOST || '192.168.1.100',
       port: parseInt(process.env.UNIFI_PORT || '443'),
-      username: process.env.UNIFI_USERNAME || 'admin',
-      password: process.env.UNIFI_PASSWORD || '',
+      apiKey: process.env.UNIFI_API_KEY || '',
       sslVerify: process.env.UNIFI_SSL_VERIFY === 'true'
     };
 
@@ -148,7 +147,7 @@ class UnifiNotificationServer {
   }
 
   public async start(): Promise<void> {
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 3001;
 
     try {
       // Iniciar servidor HTTP

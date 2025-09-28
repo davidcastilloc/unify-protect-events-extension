@@ -4,7 +4,8 @@ export enum EventType {
   VEHICLE = 'vehicle',
   PACKAGE = 'package',
   DOORBELL = 'doorbell',
-  SMART_DETECT = 'smart_detect'
+  SMART_DETECT = 'smart_detect',
+  SENSOR = 'sensor'
 }
 
 export enum EventSeverity {
