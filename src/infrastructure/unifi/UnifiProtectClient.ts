@@ -5,9 +5,7 @@ import https from 'https';
 
 export interface UnifiProtectConfig {
   host: string;
-  port: number;
   apiKey: string;
-  sslVerify: boolean;
 }
 
 export interface IUnifiProtectClient {
@@ -274,16 +272,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   constructor(config: UnifiProtectConfig) {
     this.config = config;
     this.apiKey = config.apiKey;
-    this.baseUrl = `${config.sslVerify ? 'https' : 'http'}://${config.host}:${config.port}`;
-    
-    // Configurar SSL GLOBALMENTE para Node.js
-    if (!this.config.sslVerify) {
-      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
-      // Configurar también el agente HTTPS global
-      const https = require('https');
-      https.globalAgent.options.rejectUnauthorized = false;
-      console.log('🔓 SSL verification disabled globally for self-signed certificates');
-    }
+    this.baseUrl = `https://${config.host}`;
     
     this.httpClient = axios.create({
       baseURL: this.baseUrl,
@@ -382,7 +371,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   private async connectWebSocket(): Promise<void> {
     try {
       // Usar el endpoint correcto para eventos de UniFi Protect
-      const wsUrl = `${this.baseUrl.replace('http', 'ws')}/proxy/protect/integration/v1/subscribe/events`;
+      const wsUrl = `wss://${this.config.host}/proxy/protect/integration/v1/subscribe/events`;
       console.log(`🔌 Conectando WebSocket: ${wsUrl}`);
       
       // Configurar opciones WebSocket con SSL y autenticación
@@ -392,12 +381,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
         }
       };
       
-      // Si SSL está deshabilitado, configurar WebSocket para ignorar certificados
-      if (!this.config.sslVerify) {
-        wsOptions.rejectUnauthorized = false;
-        console.log('🔓 WebSocket SSL verification disabled');
-      }
-      
+  
       this.wsClient = new WebSocket(wsUrl, wsOptions);
 
       this.wsClient.on('open', () => {
