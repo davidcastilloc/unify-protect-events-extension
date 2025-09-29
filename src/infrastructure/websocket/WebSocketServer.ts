@@ -25,6 +25,7 @@ export class WebSocketServer {
     });
 
     this.setupWebSocketHandlers();
+    this.startPingInterval();
   }
 
   private setupWebSocketHandlers(): void {
@@ -54,9 +55,12 @@ export class WebSocketServer {
         // Registrar cliente en el servicio de notificaciones
         if (this.notificationService) {
           this.notificationService.addClient(client);
+          console.log(`✅ Cliente ${clientId} registrado en el servicio de notificaciones`);
+        } else {
+          console.warn(`⚠️ NotificationService no disponible para cliente ${clientId}`);
         }
         
-        console.log(`Cliente ${clientId} conectado`);
+        console.log(`🔌 Cliente ${clientId} conectado. Total clientes: ${this.clients.size}`);
 
         // Enviar mensaje de bienvenida
         ws.send(JSON.stringify({
@@ -93,7 +97,7 @@ export class WebSocketServer {
       }
     });
 
-    ws.on('close', () => {
+    ws.on('close', (code: number, reason: Buffer) => {
       this.clients.delete(client.id);
       
       // Remover cliente del servicio de notificaciones
@@ -101,11 +105,11 @@ export class WebSocketServer {
         this.notificationService.removeClient(client.id);
       }
       
-      console.log(`Cliente ${client.id} desconectado`);
+      console.log(`🔌 Cliente ${client.id} desconectado. Código: ${code}, Razón: ${reason?.toString() || 'N/A'}. Total clientes: ${this.clients.size}`);
     });
 
     ws.on('error', (error: Error) => {
-      console.error(`Error en WebSocket del cliente ${client.id}:`, error);
+      console.error(`❌ Error en WebSocket del cliente ${client.id}:`, error);
       this.clients.delete(client.id);
       
       // Remover cliente del servicio de notificaciones
@@ -208,6 +212,22 @@ export class WebSocketServer {
 
   public setNotificationService(notificationService: INotificationService): void {
     this.notificationService = notificationService;
+  }
+
+  private startPingInterval(): void {
+    setInterval(() => {
+      this.clients.forEach((client) => {
+        if (client.socket.readyState === 1) { // WebSocket.OPEN
+          client.socket.ping();
+        } else {
+          // Cliente desconectado, removerlo
+          this.clients.delete(client.id);
+          if (this.notificationService) {
+            this.notificationService.removeClient(client.id);
+          }
+        }
+      });
+    }, 30000); // Ping cada 30 segundos
   }
 }
 

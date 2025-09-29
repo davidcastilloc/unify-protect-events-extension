@@ -233,6 +233,15 @@ class UnifiProtectExtension {
           break;
 
         case 'pong':
+          this.handleUnifiEvent({
+            id: message.clientId,
+            type: 'connected',
+            timestamp: new Date().toISOString(),
+            camera: {
+              id: message.clientId,
+              name: 'Server'
+            }
+          });
           console.log('🏓 Pong recibido');
           break;
 
@@ -294,6 +303,7 @@ class UnifiProtectExtension {
       
       const notificationId = `unifi-event-${event.id}`;
       
+      // Mostrar notificación del sistema
       await chrome.notifications.create(notificationId, {
         type: 'basic',
         iconUrl: iconUrl,
@@ -303,6 +313,9 @@ class UnifiProtectExtension {
         priority: this.getNotificationPriority(event.severity),
         requireInteraction: event.severity === 'critical'
       });
+
+      // Enviar evento al content script para mostrar popup flotante
+      this.sendEventToContentScript(event);
 
       // Reproducir sonido si está habilitado
       if (this.soundEnabled) {
@@ -503,6 +516,29 @@ class UnifiProtectExtension {
       }
     }, 30000); // Ping cada 30 segundos
   }
+
+  sendEventToContentScript(event) {
+    try {
+      // Enviar mensaje a todas las pestañas activas
+      chrome.tabs.query({ active: true }, (tabs) => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'showPopup',
+            event: event
+          }).catch(error => {
+            // Ignorar errores si no hay content script en la pestaña
+            console.log('No se pudo enviar mensaje a la pestaña:', tab.id, error.message);
+          });
+        });
+      });
+      
+      console.log('📤 Evento enviado a content scripts:', event.id);
+      
+    } catch (error) {
+      console.error('❌ Error enviando evento a content script:', error);
+    }
+  }
+
 }
 
 // Inicializar la extensión

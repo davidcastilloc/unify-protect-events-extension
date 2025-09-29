@@ -43,9 +43,9 @@ class UnifiNotificationServer {
     this.setupRoutes();
     
     this.server = createServer(this.app);
+    this.setupNotificationService(); // Mover antes del WebSocketServer
     this.setupWebSocketServer();
     this.setupUnifiClient();
-    this.setupNotificationService();
   }
 
   private setupMiddleware(): void {

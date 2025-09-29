@@ -6,14 +6,14 @@ export class NotificationService implements INotificationService {
 
   addClient(client: NotificationClient): void {
     this.clients.set(client.id, client);
-    console.log(`Cliente ${client.id} agregado al servicio de notificaciones`);
+    console.log(`✅ Cliente ${client.id} agregado al servicio de notificaciones. Total clientes: ${this.clients.size}`);
   }
 
   removeClient(clientId: string): void {
     const client = this.clients.get(clientId);
     if (client) {
       this.clients.delete(clientId);
-      console.log(`Cliente ${clientId} removido del servicio de notificaciones`);
+      console.log(`🔌 Cliente ${clientId} removido del servicio de notificaciones. Total clientes: ${this.clients.size}`);
     }
   }
 
@@ -23,13 +23,17 @@ export class NotificationService implements INotificationService {
       clientId: 'broadcast'
     };
 
-    console.log(`Transmitiendo evento ${event.id} a ${this.clients.size} clientes`);
+    console.log(`📡 Transmitiendo evento ${event.id} (${event.type}) a ${this.clients.size} clientes conectados`);
 
+    let notifiedClients = 0;
     this.clients.forEach((client) => {
       if (this.shouldNotifyClient(client, event)) {
         this.sendNotificationToClient(client, payload);
+        notifiedClients++;
       }
     });
+    
+    console.log(`📤 Evento enviado a ${notifiedClients} de ${this.clients.size} clientes`);
   }
 
   private shouldNotifyClient(client: NotificationClient, event: UnifiEvent): boolean {
@@ -37,24 +41,29 @@ export class NotificationService implements INotificationService {
 
     // Si las notificaciones están deshabilitadas
     if (!filters.enabled) {
+      console.log(`🔕 Cliente ${client.id}: notificaciones deshabilitadas`);
       return false;
     }
 
     // Filtrar por tipo de evento
     if (filters.types && filters.types.length > 0 && !filters.types.includes(event.type)) {
+      console.log(`🔕 Cliente ${client.id}: tipo de evento ${event.type} no incluido en filtros [${filters.types.join(', ')}]`);
       return false;
     }
 
     // Filtrar por severidad
     if (filters.severity && filters.severity.length > 0 && !filters.severity.includes(event.severity)) {
+      console.log(`🔕 Cliente ${client.id}: severidad ${event.severity} no incluida en filtros [${filters.severity.join(', ')}]`);
       return false;
     }
 
     // Filtrar por cámaras específicas
     if (filters.cameras && filters.cameras.length > 0 && !filters.cameras.includes(event.camera.id)) {
+      console.log(`🔕 Cliente ${client.id}: cámara ${event.camera.id} no incluida en filtros [${filters.cameras.join(', ')}]`);
       return false;
     }
 
+    console.log(`✅ Cliente ${client.id}: evento aprobado por filtros`);
     return true;
   }
 

@@ -5,6 +5,10 @@ Una extensión de Chrome que te permite recibir notificaciones en tiempo real de
 ## 🚀 Características
 
 - **Notificaciones en Tiempo Real**: Recibe notificaciones instantáneas cuando se detectan eventos en tus cámaras UniFi Protect
+- **🎯 Popups Flotantes Interactivos**: Notificaciones visuales que aparecen en cualquier página web con diseño moderno
+- **📱 Modal de Detalles**: Click en los popups para ver información completa del evento
+- **🎨 Diseño por Severidad**: Colores y gradientes que cambian según la importancia del evento
+- **⏰ Auto-cierre Inteligente**: Los popups se cierran automáticamente (excepto eventos críticos)
 - **Filtros Personalizables**: Configura qué tipos de eventos quieres recibir (movimiento, persona, vehículo, paquete, timbre, etc.)
 - **Filtros por Severidad**: Selecciona los niveles de severidad que te interesan (baja, media, alta, crítica)
 - **Filtros por Cámara**: Elige recibir notificaciones solo de cámaras específicas
@@ -108,6 +112,35 @@ Las notificaciones incluyen:
 - **Timestamp**: Hora exacta del evento
 - **Sonido**: Sonido específico según el tipo de evento
 
+### 🎯 Popups Flotantes Interactivos
+
+Los popups flotantes aparecen en la esquina superior derecha de cualquier página web:
+
+#### Características Visuales
+- **Posición**: Esquina superior derecha de la página
+- **Tamaño**: 320px de ancho, altura adaptativa
+- **Animaciones**: Entrada suave desde la derecha, salida suave
+- **Colores**: Gradientes según la severidad del evento:
+  - 🟢 **Verde**: Eventos de baja severidad
+  - 🟡 **Naranja**: Eventos de severidad media
+  - 🔴 **Rojo**: Eventos de alta severidad
+  - 🟣 **Morado**: Eventos críticos
+
+#### Funcionalidad Interactiva
+- **Click en Header**: Abre modal con detalles completos del evento
+- **Botón "Ver Detalles"**: Abre modal con información completa
+- **Botón "Cerrar"**: Cierra el popup inmediatamente
+- **Botón X**: Cierra el popup inmediatamente
+- **Auto-cierre**: 10 segundos (excepto eventos críticos que permanecen hasta cerrar manualmente)
+
+#### Modal de Detalles
+El modal muestra información completa organizada en secciones:
+
+- **Información General**: ID del evento, tipo, severidad, descripción
+- **Información de Cámara**: Nombre, ID, modelo de la cámara
+- **Información Temporal**: Timestamp formateado e ISO string
+- **Diseño Responsivo**: Se adapta al tamaño de pantalla
+
 ### Página de Opciones
 
 Accede a la configuración completa:
@@ -168,6 +201,7 @@ La página de opciones incluye herramientas de diagnóstico:
 chrome-extension/
 ├── manifest.json          # Configuración de la extensión
 ├── background.js          # Script de fondo (service worker)
+├── content.js             # Content script para popups flotantes
 ├── popup.html            # Interfaz del popup
 ├── popup.css             # Estilos del popup
 ├── popup.js              # Lógica del popup
@@ -198,16 +232,25 @@ La extensión requiere los siguientes permisos:
 - **notifications**: Para mostrar notificaciones del sistema
 - **storage**: Para guardar configuraciones y preferencias
 - **activeTab**: Para interactuar con pestañas activas
+- **scripting**: Para inyectar content scripts en páginas web
 - **host_permissions**: Para conectarse al servidor UniFi Protect
 
 ## 🚀 Desarrollo
 
 ### Estructura del Código
 
-- **Background Script**: Maneja la conexión WebSocket y las notificaciones
+- **Background Script**: Maneja la conexión WebSocket y envía eventos a content scripts
+- **Content Script**: Se ejecuta en todas las páginas web y crea los popups flotantes
 - **Popup**: Interfaz de usuario principal con estadísticas
 - **Options**: Página de configuración completa
 - **Icons**: Iconos SVG y PNG para diferentes tipos de eventos
+
+### Arquitectura de Popups Flotantes
+
+1. **Background Script**: Recibe eventos del servidor WebSocket y los envía a content scripts
+2. **Content Script**: Se ejecuta en todas las páginas web y crea los popups flotantes
+3. **Popup de Extensión**: Muestra estadísticas y controles de la extensión
+4. **Modal de Detalles**: Se abre desde los popups para mostrar información completa
 
 ### Tecnologías Utilizadas
 
@@ -218,6 +261,14 @@ La extensión requiere los siguientes permisos:
 - **ES6+**: JavaScript moderno con async/await
 
 ## 📝 Changelog
+
+### v1.1.0
+- **🎯 Popups Flotantes Interactivos**: Notificaciones visuales que aparecen en cualquier página web
+- **📱 Modal de Detalles**: Click en popups para ver información completa del evento
+- **🎨 Diseño por Severidad**: Colores y gradientes que cambian según la importancia
+- **⏰ Auto-cierre Inteligente**: Popups se cierran automáticamente (excepto eventos críticos)
+- **🔧 Content Script**: Nuevo sistema para mostrar popups en páginas web
+- **📱 Diseño Responsivo**: Popups y modales se adaptan a diferentes tamaños de pantalla
 
 ### v1.0.0
 - Lanzamiento inicial

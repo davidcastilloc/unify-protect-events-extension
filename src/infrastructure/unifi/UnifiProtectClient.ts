@@ -5,7 +5,9 @@ import https from 'https';
 
 export interface UnifiProtectConfig {
   host: string;
+  port?: number;
   apiKey: string;
+  sslVerify?: boolean;
 }
 
 export interface IUnifiProtectClient {
@@ -239,7 +241,7 @@ type UnifiProtectEvent =
   | CameraSmartDetectLoiterEvent;
 
 interface UnifiProtectUpdateMessage {
-  type: 'add' | 'update' | 'delete';
+  type: 'add' | 'update';
   item: UnifiProtectEvent | UnifiProtectCamera;
 }
 
@@ -301,7 +303,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
 
   async connect(): Promise<void> {
     try {
-      console.log(`🔗 Conectando a UniFi Protect en ${this.config.host}:${this.config.port}`);
+      console.log(`🔗 Conectando a UniFi Protect en ${this.config.host}:${this.config.port || 443}`);
       console.log(`🔑 API Key: ${this.apiKey.substring(0, 8)}...`);
       
       console.log('🚀 Conectando con UniFi Protect...');
@@ -360,7 +362,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   private async getApplicationInfo(): Promise<{ applicationVersion: string }> {
     try {
       // Usar el endpoint correcto para obtener información del NVR
-      const response = await this.httpClient.get('/proxy/protect/integration/v1/nvr');
+      const response = await this.httpClient.get('/proxy/protect/integration/v1/nvrs');
       return { applicationVersion: response.data.version || 'unknown' };
     } catch (error) {
       console.error('❌ Error obteniendo información de aplicación:', error);
@@ -438,7 +440,8 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     console.log(`📡 Mensaje WebSocket recibido: ${message.type}`);
     console.log('📊 Datos completos del mensaje:', JSON.stringify(message, null, 2));
 
-    if (message.type === 'add' && message.item.modelKey === 'event') {
+    // Corregido: solo debe cumplirse si el tipo es 'add' o 'update'
+    if (message.type === 'add' || message.type === 'update') {
       const event = message.item as UnifiProtectEvent;
       console.log('🎯 Evento detectado:', event.type);
       console.log('📋 Detalles del evento:', JSON.stringify(event, null, 2));

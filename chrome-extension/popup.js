@@ -340,9 +340,9 @@ class PopupController {
 
   handleBackgroundMessage(message) {
     switch (message.type) {
-      case 'event':
-        this.addRecentEvent(message.data);
-        this.updateStatsFromEvent(message.data);
+      case 'unifiEvent':
+        this.addRecentEvent(message.event);
+        this.updateStatsFromEvent(message.event);
         break;
         
       case 'status':
