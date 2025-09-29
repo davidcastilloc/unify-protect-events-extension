@@ -1,8 +1,8 @@
-<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="24" cy="24" r="22" fill="#2196F3"/>
-  <rect x="12" y="20" width="24" height="12" rx="2" fill="white"/>
-  <circle cx="18" cy="32" r="3" fill="#2196F3"/>
-  <circle cx="30" cy="32" r="3" fill="#2196F3"/>
-  <rect x="14" y="22" width="20" height="6" rx="1" fill="#2196F3"/>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#2196F3"/>
+  <path d="M6 20C6 18.9 6.9 18 8 18H9L11 12H21L23 18H24C25.1 18 26 18.9 26 20V24C26 25.1 25.1 26 24 26H22C21.45 26 21 25.55 21 25C21 24.45 21.45 24 22 24H24V20H8V24H10C10.55 24 11 24.45 11 25C11 25.55 10.55 26 10 26H8C6.9 26 6 25.1 6 24V20Z" fill="white"/>
+  <circle cx="10" cy="25" r="2" fill="#2196F3"/>
+  <circle cx="22" cy="25" r="2" fill="#2196F3"/>
+  <path d="M9 18L11 12H21L23 18" stroke="#2196F3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 20H24V24H22C21.45 24 21 24.45 21 25C21 25.55 21.45 26 22 26H24C25.1 26 26 25.1 26 24V20C26 18.9 25.1 18 24 18H23L21 12H11L9 18H8C6.9 18 6 18.9 6 20V24C6 25.1 6.9 26 8 26H10C10.55 26 11 25.55 11 25C11 24.45 10.55 24 10 24H8V20Z" stroke="#2196F3" stroke-width="2"/>
 </svg>
-

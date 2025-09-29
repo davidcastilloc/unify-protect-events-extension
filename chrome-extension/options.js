@@ -1,414 +1,554 @@
-interface NotificationConfig {
-  backendUrl: string;
-  clientId: string;
-  enabled: boolean;
-  filters: {
-    types: string[];
-    severity: string[];
-    cameras: string[];
-  };
-}
-
-interface Camera {
-  id: string;
-  name: string;
-  type: string;
-  location?: string;
-}
-
-class OptionsManager {
-  private config: NotificationConfig;
-  private cameras: Camera[] = [];
-
+// Script para la página de opciones de la extensión UniFi Protect
+class OptionsController {
   constructor() {
-    this.config = {
-      backendUrl: 'http://localhost:3000',
-      clientId: `chrome-extension-${Date.now()}`,
-      enabled: true,
-      filters: {
-        types: ['motion', 'person', 'vehicle', 'doorbell'],
-        severity: ['low', 'medium', 'high', 'critical'],
-        cameras: []
-      }
+    this.defaultSettings = {
+      serverUrl: 'http://localhost:3001',
+      connectionTimeout: 30,
+      reconnectAttempts: 5,
+      notificationsEnabled: true,
+      soundEnabled: true,
+      notificationDuration: 10,
+      maxNotifications: 5,
+      filtersEnabled: true,
+      eventTypes: {
+        motion: true,
+        person: true,
+        vehicle: true,
+        package: true,
+        doorbell: true,
+        smart_detect: true,
+        sensor: true
+      },
+      severityLevels: {
+        low: true,
+        medium: true,
+        high: true,
+        critical: true
+      },
+      selectedCameras: [],
+      debugMode: false,
+      autoReconnect: true,
+      heartbeatInterval: 30,
+      eventHistorySize: 50
     };
-
-    this.initialize();
+    
+    this.init();
   }
 
-  private async initialize(): Promise<void> {
-    console.log('Inicializando página de opciones...');
+  async init() {
+    console.log('🚀 Inicializando página de opciones');
     
     // Cargar configuración guardada
-    await this.loadConfig();
+    await this.loadSettings();
     
-    // Configurar elementos de la UI
+    // Configurar event listeners
     this.setupEventListeners();
     
-    // Cargar datos iniciales
-    await this.updateConnectionStatus();
+    // Cargar cámaras disponibles
     await this.loadCameras();
     
-    console.log('Página de opciones inicializada');
+    // Actualizar UI
+    this.updateUI();
   }
 
-  private async loadConfig(): Promise<void> {
+  async loadSettings() {
     try {
-      const result = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
-      if (result && result.config) {
-        this.config = result.config;
-        this.updateUI();
-      }
-    } catch (error) {
-      console.error('Error cargando configuración:', error);
-    }
-  }
-
-  private async saveConfig(): Promise<void> {
-    try {
-      const result = await chrome.runtime.sendMessage({
-        type: 'UPDATE_CONFIG',
-        config: this.config
+      const settings = await chrome.storage.sync.get(Object.keys(this.defaultSettings));
+      
+      // Aplicar configuración cargada o usar valores por defecto
+      Object.keys(this.defaultSettings).forEach(key => {
+        if (settings[key] !== undefined) {
+          this.defaultSettings[key] = settings[key];
+        }
       });
       
-      if (result && result.success) {
-        this.showNotification('Configuración guardada correctamente', 'success');
-        await this.updateConnectionStatus();
-      } else {
-        this.showNotification('Error guardando configuración', 'error');
-      }
+      console.log('⚙️ Configuración cargada:', this.defaultSettings);
+      
     } catch (error) {
-      console.error('Error guardando configuración:', error);
-      this.showNotification('Error guardando configuración', 'error');
+      console.error('❌ Error cargando configuración:', error);
+      this.showToast('Error cargando configuración', 'error');
     }
   }
 
-  private updateUI(): void {
-    // Actualizar campos de conexión
-    (document.getElementById('backendUrl') as HTMLInputElement).value = this.config.backendUrl;
-    (document.getElementById('clientId') as HTMLInputElement).value = this.config.clientId;
-    (document.getElementById('enabled') as HTMLInputElement).checked = this.config.enabled;
-
-    // Actualizar filtros de tipos de eventos
-    this.config.filters.types.forEach(type => {
-      const checkbox = document.getElementById(`filter-${type}`) as HTMLInputElement;
-      if (checkbox) checkbox.checked = true;
-    });
-
-    // Actualizar filtros de severidad
-    this.config.filters.severity.forEach(severity => {
-      const checkbox = document.getElementById(`filter-${severity}`) as HTMLInputElement;
-      if (checkbox) checkbox.checked = true;
-    });
-
-    // Actualizar checkboxes visualmente
-    this.updateCheckboxVisuals();
-  }
-
-  private setupEventListeners(): void {
+  setupEventListeners() {
     // Botones principales
-    document.getElementById('saveConfig')?.addEventListener('click', () => {
-      this.collectConfigFromUI();
-      this.saveConfig();
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      this.saveSettings();
     });
-
-    document.getElementById('resetConfig')?.addEventListener('click', () => {
-      this.resetConfig();
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      this.resetSettings();
     });
-
-    document.getElementById('testConnection')?.addEventListener('click', () => {
+    
+    // Botones de prueba
+    document.getElementById('testConnectionBtn').addEventListener('click', () => {
       this.testConnection();
     });
-
-    document.getElementById('refreshCameras')?.addEventListener('click', () => {
-      this.loadCameras();
+    
+    document.getElementById('testNotificationBtn').addEventListener('click', () => {
+      this.testNotification();
     });
-
-    // Toggle de habilitación
-    document.getElementById('enabled')?.addEventListener('change', (e) => {
-      this.config.enabled = (e.target as HTMLInputElement).checked;
-      this.updateConnectionStatus();
+    
+    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+      this.clearHistory();
     });
-
-    // Checkboxes de filtros
-    this.setupFilterCheckboxes();
-
-    // Campos de texto
-    document.getElementById('backendUrl')?.addEventListener('input', (e) => {
-      this.config.backendUrl = (e.target as HTMLInputElement).value;
+    
+    document.getElementById('exportConfigBtn').addEventListener('click', () => {
+      this.exportConfig();
     });
+    
+    document.getElementById('importConfigBtn').addEventListener('click', () => {
+      this.importConfig();
+    });
+    
+    // Links del footer
+    document.getElementById('helpLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showHelp();
+    });
+    
+    document.getElementById('feedbackLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showFeedback();
+    });
+    
+    // File input para importar
+    document.getElementById('importFileInput').addEventListener('change', (e) => {
+      this.handleImportFile(e.target.files[0]);
+    });
+    
+    // Auto-save en cambios
+    this.setupAutoSave();
+  }
 
-    document.getElementById('clientId')?.addEventListener('input', (e) => {
-      this.config.clientId = (e.target as HTMLInputElement).value;
+  setupAutoSave() {
+    // Auto-guardar cuando cambien los valores
+    const inputs = document.querySelectorAll('input, select');
+    inputs.forEach(input => {
+      input.addEventListener('change', () => {
+        this.debounce(() => {
+          this.saveSettings(false); // false = no mostrar toast
+        }, 1000)();
+      });
     });
   }
 
-  private setupFilterCheckboxes(): void {
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  updateUI() {
+    // Configuración del servidor
+    document.getElementById('serverUrl').value = this.defaultSettings.serverUrl;
+    document.getElementById('connectionTimeout').value = this.defaultSettings.connectionTimeout;
+    document.getElementById('reconnectAttempts').value = this.defaultSettings.reconnectAttempts;
+    
+    // Configuración de notificaciones
+    document.getElementById('notificationsEnabled').checked = this.defaultSettings.notificationsEnabled;
+    document.getElementById('soundEnabled').checked = this.defaultSettings.soundEnabled;
+    document.getElementById('notificationDuration').value = this.defaultSettings.notificationDuration;
+    document.getElementById('maxNotifications').value = this.defaultSettings.maxNotifications;
+    
+    // Filtros de eventos
+    document.getElementById('filtersEnabled').checked = this.defaultSettings.filtersEnabled;
+    
     // Tipos de eventos
-    ['motion', 'person', 'vehicle', 'package', 'doorbell', 'smart-detect'].forEach(type => {
-      const checkbox = document.getElementById(`filter-${type}`) as HTMLInputElement;
+    Object.keys(this.defaultSettings.eventTypes).forEach(type => {
+      const checkbox = document.getElementById(`filter${type.charAt(0).toUpperCase() + type.slice(1)}`);
       if (checkbox) {
-        checkbox.addEventListener('change', () => {
-          this.updateCheckboxVisuals();
-        });
+        checkbox.checked = this.defaultSettings.eventTypes[type];
       }
     });
-
+    
     // Niveles de severidad
-    ['low', 'medium', 'high', 'critical'].forEach(severity => {
-      const checkbox = document.getElementById(`filter-${severity}`) as HTMLInputElement;
+    Object.keys(this.defaultSettings.severityLevels).forEach(level => {
+      const checkbox = document.getElementById(`filter${level.charAt(0).toUpperCase() + level.slice(1)}`);
       if (checkbox) {
-        checkbox.addEventListener('change', () => {
-          this.updateCheckboxVisuals();
-        });
+        checkbox.checked = this.defaultSettings.severityLevels[level];
       }
     });
-  }
-
-  private updateCheckboxVisuals(): void {
-    document.querySelectorAll('.checkbox-item').forEach(item => {
-      const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      if (checkbox && checkbox.checked) {
-        item.classList.add('checked');
-      } else {
-        item.classList.remove('checked');
-      }
-    });
-  }
-
-  private collectConfigFromUI(): void {
-    // Conexión
-    this.config.backendUrl = (document.getElementById('backendUrl') as HTMLInputElement).value;
-    this.config.clientId = (document.getElementById('clientId') as HTMLInputElement).value;
-    this.config.enabled = (document.getElementById('enabled') as HTMLInputElement).checked;
-
-    // Filtros de tipos
-    this.config.filters.types = [];
-    ['motion', 'person', 'vehicle', 'package', 'doorbell', 'smart-detect'].forEach(type => {
-      const checkbox = document.getElementById(`filter-${type}`) as HTMLInputElement;
-      if (checkbox && checkbox.checked) {
-        this.config.filters.types.push(type === 'smart-detect' ? 'smart_detect' : type);
-      }
-    });
-
-    // Filtros de severidad
-    this.config.filters.severity = [];
-    ['low', 'medium', 'high', 'critical'].forEach(severity => {
-      const checkbox = document.getElementById(`filter-${severity}`) as HTMLInputElement;
-      if (checkbox && checkbox.checked) {
-        this.config.filters.severity.push(severity);
-      }
-    });
-
-    // Filtros de cámaras
-    this.config.filters.cameras = [];
-    document.querySelectorAll('#cameraList input[type="checkbox"]:checked').forEach(checkbox => {
-      this.config.filters.cameras.push((checkbox as HTMLInputElement).value);
-    });
-  }
-
-  private async updateConnectionStatus(): Promise<void> {
-    const statusElement = document.getElementById('connectionStatus');
-    if (!statusElement) return;
-
-    try {
-      const result = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
-      
-      if (result && result.connected) {
-        statusElement.textContent = 'Estado: Conectado ✅';
-        statusElement.className = 'status connected';
-      } else {
-        statusElement.textContent = `Estado: Desconectado ❌ (Intentos: ${result?.reconnectAttempts || 0})`;
-        statusElement.className = 'status disconnected';
-      }
-    } catch (error) {
-      statusElement.textContent = 'Estado: Error de conexión ❌';
-      statusElement.className = 'status disconnected';
-    }
-  }
-
-  private async testConnection(): Promise<void> {
-    const statusElement = document.getElementById('connectionStatus');
-    const testButton = document.getElementById('testConnection') as HTMLButtonElement;
     
-    if (!statusElement || !testButton) return;
-
-    statusElement.textContent = 'Probando conexión...';
-    statusElement.className = 'status testing';
-    testButton.disabled = true;
-    testButton.textContent = 'Probando...';
-
-    try {
-      const result = await chrome.runtime.sendMessage({ type: 'TEST_CONNECTION' });
-      
-      if (result && result.connected) {
-        statusElement.textContent = 'Estado: Conexión exitosa ✅';
-        statusElement.className = 'status connected';
-      } else {
-        statusElement.textContent = 'Estado: Error de conexión ❌';
-        statusElement.className = 'status disconnected';
-      }
-    } catch (error) {
-      statusElement.textContent = 'Estado: Error de conexión ❌';
-      statusElement.className = 'status disconnected';
-    } finally {
-      testButton.disabled = false;
-      testButton.textContent = 'Probar Conexión';
-    }
+    // Configuración avanzada
+    document.getElementById('debugMode').checked = this.defaultSettings.debugMode;
+    document.getElementById('autoReconnect').checked = this.defaultSettings.autoReconnect;
+    document.getElementById('heartbeatInterval').value = this.defaultSettings.heartbeatInterval;
+    document.getElementById('eventHistorySize').value = this.defaultSettings.eventHistorySize;
   }
 
-  private async loadCameras(): Promise<void> {
-    const loadingElement = document.getElementById('cameraLoading');
-    const cameraListElement = document.getElementById('cameraList');
-    
-    if (!loadingElement || !cameraListElement) return;
-
-    loadingElement.style.display = 'block';
-    cameraListElement.style.display = 'none';
-
+  async loadCameras() {
     try {
-      const response = await fetch(`${this.config.backendUrl}/api/cameras`);
+      const serverUrl = this.defaultSettings.serverUrl;
+      const response = await fetch(`${serverUrl}/api/cameras`);
       
       if (response.ok) {
-        this.cameras = await response.json();
-        this.renderCameraList();
+        const cameras = await response.json();
+        this.populateCameraSelect(cameras);
       } else {
-        throw new Error(`HTTP ${response.status}`);
+        this.addTestResult('No se pudieron cargar las cámaras del servidor', 'error');
       }
+      
     } catch (error) {
-      console.error('Error cargando cámaras:', error);
-      cameraListElement.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 20px;">Error cargando cámaras. Verifica que el backend esté ejecutándose.</p>';
-    } finally {
-      loadingElement.style.display = 'none';
-      cameraListElement.style.display = 'block';
+      console.error('❌ Error cargando cámaras:', error);
+      this.addTestResult('Error conectando al servidor para obtener cámaras', 'error');
     }
   }
 
-  private renderCameraList(): void {
-    const cameraListElement = document.getElementById('cameraList');
-    if (!cameraListElement) return;
+  populateCameraSelect(cameras) {
+    const select = document.getElementById('cameraFilter');
+    select.innerHTML = '<option value="">Todas las cámaras</option>';
+    
+    cameras.forEach(camera => {
+      const option = document.createElement('option');
+      option.value = camera.id;
+      option.textContent = camera.name;
+      option.selected = this.defaultSettings.selectedCameras.includes(camera.id);
+      select.appendChild(option);
+    });
+  }
 
-    if (this.cameras.length === 0) {
-      cameraListElement.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No se encontraron cámaras.</p>';
-      return;
+  async saveSettings(showToast = true) {
+    try {
+      const settings = this.collectFormData();
+      
+      await chrome.storage.sync.set(settings);
+      
+      // Enviar configuración actualizada al background script
+      await this.sendMessageToBackground({
+        type: 'updateSettings',
+        settings: settings
+      });
+      
+      if (showToast) {
+        this.showToast('Configuración guardada exitosamente', 'success');
+      }
+      
+      console.log('💾 Configuración guardada:', settings);
+      
+    } catch (error) {
+      console.error('❌ Error guardando configuración:', error);
+      this.showToast('Error guardando configuración', 'error');
     }
+  }
 
-    const html = this.cameras.map(camera => `
-      <div class="camera-item">
-        <input type="checkbox" id="camera-${camera.id}" value="${camera.id}" ${this.config.filters.cameras.includes(camera.id) ? 'checked' : ''}>
-        <label for="camera-${camera.id}">
-          <strong>${camera.name}</strong>
-          <br>
-          <small>${camera.type}${camera.location ? ` - ${camera.location}` : ''}</small>
-        </label>
-      </div>
-    `).join('');
+  collectFormData() {
+    const settings = {
+      serverUrl: document.getElementById('serverUrl').value,
+      connectionTimeout: parseInt(document.getElementById('connectionTimeout').value),
+      reconnectAttempts: parseInt(document.getElementById('reconnectAttempts').value),
+      notificationsEnabled: document.getElementById('notificationsEnabled').checked,
+      soundEnabled: document.getElementById('soundEnabled').checked,
+      notificationDuration: parseInt(document.getElementById('notificationDuration').value),
+      maxNotifications: parseInt(document.getElementById('maxNotifications').value),
+      filtersEnabled: document.getElementById('filtersEnabled').checked,
+      eventTypes: {
+        motion: document.getElementById('filterMotion').checked,
+        person: document.getElementById('filterPerson').checked,
+        vehicle: document.getElementById('filterVehicle').checked,
+        package: document.getElementById('filterPackage').checked,
+        doorbell: document.getElementById('filterDoorbell').checked,
+        smart_detect: document.getElementById('filterSmartDetect').checked,
+        sensor: document.getElementById('filterSensor').checked
+      },
+      severityLevels: {
+        low: document.getElementById('filterLow').checked,
+        medium: document.getElementById('filterMedium').checked,
+        high: document.getElementById('filterHigh').checked,
+        critical: document.getElementById('filterCritical').checked
+      },
+      selectedCameras: Array.from(document.getElementById('cameraFilter').selectedOptions)
+        .map(option => option.value)
+        .filter(value => value !== ''),
+      debugMode: document.getElementById('debugMode').checked,
+      autoReconnect: document.getElementById('autoReconnect').checked,
+      heartbeatInterval: parseInt(document.getElementById('heartbeatInterval').value),
+      eventHistorySize: parseInt(document.getElementById('eventHistorySize').value)
+    };
+    
+    return settings;
+  }
 
-    cameraListElement.innerHTML = html;
+  async resetSettings() {
+    if (confirm('¿Estás seguro de que quieres restaurar todos los valores por defecto?')) {
+      try {
+        await chrome.storage.sync.clear();
+        this.defaultSettings = { ...this.defaultSettings };
+        this.updateUI();
+        this.showToast('Configuración restaurada a valores por defecto', 'info');
+      } catch (error) {
+        console.error('❌ Error restaurando configuración:', error);
+        this.showToast('Error restaurando configuración', 'error');
+      }
+    }
+  }
 
-    // Configurar event listeners para las cámaras
-    this.cameras.forEach(camera => {
-      const checkbox = document.getElementById(`camera-${camera.id}`) as HTMLInputElement;
-      if (checkbox) {
-        checkbox.addEventListener('change', () => {
-          this.updateCheckboxVisuals();
-        });
+  async testConnection() {
+    const testBtn = document.getElementById('testConnectionBtn');
+    const originalText = testBtn.innerHTML;
+    
+    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
+    testBtn.disabled = true;
+    
+    try {
+      const serverUrl = document.getElementById('serverUrl').value;
+      const response = await fetch(`${serverUrl}/health`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        this.addTestResult(`✅ Conexión exitosa - Clientes conectados: ${data.clients}`, 'success');
+      } else {
+        this.addTestResult(`❌ Error HTTP: ${response.status}`, 'error');
+      }
+      
+    } catch (error) {
+      this.addTestResult(`❌ Error de conexión: ${error.message}`, 'error');
+    } finally {
+      testBtn.innerHTML = originalText;
+      testBtn.disabled = false;
+    }
+  }
+
+  async testNotification() {
+    try {
+      await chrome.notifications.create('test-notification', {
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: 'Prueba de Notificación',
+        message: 'Esta es una notificación de prueba de UniFi Protect',
+        priority: 1
+      });
+      
+      this.addTestResult('✅ Notificación de prueba enviada', 'success');
+      
+    } catch (error) {
+      this.addTestResult(`❌ Error enviando notificación: ${error.message}`, 'error');
+    }
+  }
+
+  async clearHistory() {
+    if (confirm('¿Estás seguro de que quieres limpiar todo el historial de eventos?')) {
+      try {
+        await chrome.storage.local.remove(['recentEvents', 'stats']);
+        this.addTestResult('✅ Historial limpiado exitosamente', 'success');
+      } catch (error) {
+        this.addTestResult(`❌ Error limpiando historial: ${error.message}`, 'error');
+      }
+    }
+  }
+
+  exportConfig() {
+    try {
+      const config = this.collectFormData();
+      const configJson = JSON.stringify(config, null, 2);
+      
+      const blob = new Blob([configJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'unifi-protect-config.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      this.addTestResult('✅ Configuración exportada exitosamente', 'success');
+      
+    } catch (error) {
+      this.addTestResult(`❌ Error exportando configuración: ${error.message}`, 'error');
+    }
+  }
+
+  importConfig() {
+    document.getElementById('importFileInput').click();
+  }
+
+  async handleImportFile(file) {
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const config = JSON.parse(text);
+      
+      // Validar configuración
+      if (this.validateConfig(config)) {
+        // Aplicar configuración
+        Object.assign(this.defaultSettings, config);
+        this.updateUI();
+        
+        // Guardar configuración
+        await chrome.storage.sync.set(config);
+        
+        this.addTestResult('✅ Configuración importada exitosamente', 'success');
+      } else {
+        this.addTestResult('❌ Archivo de configuración inválido', 'error');
+      }
+      
+    } catch (error) {
+      this.addTestResult(`❌ Error importando configuración: ${error.message}`, 'error');
+    }
+  }
+
+  validateConfig(config) {
+    // Validaciones básicas
+    const requiredFields = ['serverUrl', 'notificationsEnabled', 'soundEnabled'];
+    
+    for (const field of requiredFields) {
+      if (!(field in config)) {
+        return false;
+      }
+    }
+    
+    // Validar URL del servidor
+    try {
+      new URL(config.serverUrl);
+    } catch {
+      return false;
+    }
+    
+    return true;
+  }
+
+  showHelp() {
+    const helpContent = `
+      <h3>Ayuda - UniFi Protect Notifications</h3>
+      <h4>Configuración del Servidor:</h4>
+      <p>Ingresa la URL completa de tu servidor UniFi Protect (ej: http://192.168.1.100:3001)</p>
+      
+      <h4>Filtros de Eventos:</h4>
+      <p>Selecciona qué tipos de eventos quieres recibir. Puedes filtrar por tipo de evento, severidad y cámaras específicas.</p>
+      
+      <h4>Notificaciones:</h4>
+      <p>Las notificaciones aparecerán en tu sistema operativo cuando se detecten eventos según tus filtros configurados.</p>
+      
+      <h4>Solución de Problemas:</h4>
+      <p>Si no recibes notificaciones, verifica que el servidor esté ejecutándose y que la URL sea correcta.</p>
+    `;
+    
+    this.showModal('Ayuda', helpContent);
+  }
+
+  showFeedback() {
+    const feedbackContent = `
+      <h3>Enviar Feedback</h3>
+      <p>¿Tienes sugerencias o encontraste un problema?</p>
+      <p>Envía un email a: <a href="mailto:feedback@example.com">feedback@example.com</a></p>
+      <p>O crea un issue en el repositorio del proyecto.</p>
+    `;
+    
+    this.showModal('Feedback', feedbackContent);
+  }
+
+  showModal(title, content) {
+    // Crear modal simple
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    `;
+    
+    modalContent.innerHTML = `
+      <h2>${title}</h2>
+      <div style="margin-top: 16px;">${content}</div>
+      <button onclick="this.closest('.modal').remove()" 
+              style="margin-top: 16px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+        Cerrar
+      </button>
+    `;
+    
+    modal.className = 'modal';
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Cerrar al hacer click fuera del modal
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
       }
     });
-
-    this.updateCheckboxVisuals();
   }
 
-  private async resetConfig(): Promise<void> {
-    if (confirm('¿Estás seguro de que quieres restablecer toda la configuración?')) {
-      this.config = {
-        backendUrl: 'http://localhost:3000',
-        clientId: `chrome-extension-${Date.now()}`,
-        enabled: true,
-        filters: {
-          types: ['motion', 'person', 'vehicle', 'doorbell'],
-          severity: ['low', 'medium', 'high', 'critical'],
-          cameras: []
-        }
-      };
-
-      this.updateUI();
-      await this.saveConfig();
-      this.showNotification('Configuración restablecida', 'success');
-    }
-  }
-
-  private showNotification(message: string, type: 'success' | 'error' | 'info'): void {
-    // Crear elemento de notificación
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 15px 20px;
-      border-radius: 6px;
-      color: white;
-      font-weight: 600;
-      z-index: 1000;
-      animation: slideIn 0.3s ease-out;
-      max-width: 300px;
+  addTestResult(message, type) {
+    const resultsContainer = document.getElementById('testResults');
+    const result = document.createElement('div');
+    result.className = `test-result ${type}`;
+    result.innerHTML = `
+      <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+      <span>${message}</span>
     `;
+    
+    resultsContainer.appendChild(result);
+    
+    // Auto-remover después de 10 segundos
+    setTimeout(() => {
+      if (result.parentNode) {
+        result.parentNode.removeChild(result);
+      }
+    }, 10000);
+  }
 
-    switch (type) {
-      case 'success':
-        notification.style.background = '#28a745';
-        break;
-      case 'error':
-        notification.style.background = '#dc3545';
-        break;
-      case 'info':
-        notification.style.background = '#17a2b8';
-        break;
-    }
-
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
+  showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Animar entrada
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 10);
+    
     // Remover después de 3 segundos
     setTimeout(() => {
-      notification.style.animation = 'slideOut 0.3s ease-in';
+      toast.classList.remove('show');
       setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
         }
       }, 300);
     }, 3000);
   }
+
+  sendMessageToBackground(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
+  }
 }
 
-// Agregar estilos de animación
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-  
-  @keyframes slideOut {
-    from {
-      transform: translateX(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-  }
-`;
-document.head.appendChild(style);
-
-// Inicializar cuando el DOM esté listo
+// Inicializar cuando se carga el DOM
 document.addEventListener('DOMContentLoaded', () => {
-  new OptionsManager();
+  new OptionsController();
 });
-

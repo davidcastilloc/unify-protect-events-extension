@@ -1,341 +1,424 @@
-class PopupManager {
-  private statusUpdateInterval: number | null = null;
-  private eventCount = 0;
-  private startTime = Date.now();
-
+// Script para el popup de la extensión UniFi Protect
+class PopupController {
   constructor() {
-    this.initialize();
+    this.stats = {
+      totalEvents: 0,
+      activeCameras: 0,
+      notificationsSent: 0
+    };
+    
+    this.recentEvents = [];
+    this.maxRecentEvents = 5;
+    
+    this.init();
   }
 
-  private async initialize(): Promise<void> {
-    console.log('Inicializando popup...');
+  async init() {
+    console.log('🚀 Inicializando popup');
     
+    // Cargar estado inicial
+    await this.loadInitialState();
+    
+    // Configurar event listeners
     this.setupEventListeners();
-    await this.updateStatus();
-    this.startStatusUpdates();
     
-    console.log('Popup inicializado');
+    // Actualizar UI
+    this.updateUI();
+    
+    // Iniciar actualizaciones periódicas
+    this.startPeriodicUpdates();
   }
 
-  private setupEventListeners(): void {
-    // Toggle de notificaciones
-    const toggle = document.getElementById('notificationToggle') as HTMLInputElement;
-    toggle?.addEventListener('change', async (e) => {
-      const enabled = (e.target as HTMLInputElement).checked;
-      await this.updateNotificationSetting(enabled);
-    });
+  async loadInitialState() {
+    try {
+      // Obtener estado del background script
+      const response = await this.sendMessage({ type: 'getStatus' });
+      
+      if (response) {
+        this.updateConnectionStatus(response);
+      }
+      
+      // Cargar configuración guardada
+      const settings = await chrome.storage.sync.get([
+        'notificationsEnabled',
+        'soundEnabled',
+        'eventFilters'
+      ]);
+      
+      // Actualizar toggles
+      document.getElementById('notificationsToggle').checked = 
+        settings.notificationsEnabled !== false;
+      document.getElementById('soundToggle').checked = 
+        settings.soundEnabled !== false;
+      
+      // Cargar estadísticas
+      const savedStats = await chrome.storage.local.get(['stats']);
+      if (savedStats.stats) {
+        this.stats = { ...this.stats, ...savedStats.stats };
+      }
+      
+      // Cargar eventos recientes
+      const savedEvents = await chrome.storage.local.get(['recentEvents']);
+      if (savedEvents.recentEvents) {
+        this.recentEvents = savedEvents.recentEvents;
+      }
+      
+    } catch (error) {
+      console.error('❌ Error cargando estado inicial:', error);
+    }
+  }
 
-    // Botón de prueba de notificación
-    document.getElementById('testNotification')?.addEventListener('click', () => {
-      this.sendTestNotification();
+  setupEventListeners() {
+    // Botones de conexión
+    document.getElementById('connectBtn').addEventListener('click', () => {
+      this.connect();
     });
-
-    // Botón de actualizar estado
-    document.getElementById('refreshStatus')?.addEventListener('click', () => {
-      this.updateStatus();
+    
+    document.getElementById('disconnectBtn').addEventListener('click', () => {
+      this.disconnect();
     });
-
-    // Enlaces del footer
-    document.getElementById('openOptions')?.addEventListener('click', (e) => {
-      e.preventDefault();
+    
+    // Toggles
+    document.getElementById('notificationsToggle').addEventListener('change', (e) => {
+      this.toggleNotifications(e.target.checked);
+    });
+    
+    document.getElementById('soundToggle').addEventListener('change', (e) => {
+      this.toggleSound(e.target.checked);
+    });
+    
+    // Botones de acción
+    document.getElementById('optionsBtn').addEventListener('click', () => {
       chrome.runtime.openOptionsPage();
     });
-
-    document.getElementById('openHelp')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.openHelp();
+    
+    document.getElementById('testBtn').addEventListener('click', () => {
+      this.testConnection();
+    });
+    
+    // Listener para mensajes del background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      this.handleBackgroundMessage(message);
     });
   }
 
-  private async updateStatus(): Promise<void> {
+  async connect() {
+    try {
+      const connectBtn = document.getElementById('connectBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      
+      connectBtn.disabled = true;
+      connectBtn.textContent = 'Conectando...';
+      
+      const response = await this.sendMessage({ type: 'connect' });
+      
+      if (response && response.success) {
+        this.updateConnectionStatus({ isConnected: true });
+        this.showToast('Conectado exitosamente', 'success');
+      } else {
+        this.showToast('Error al conectar', 'error');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error conectando:', error);
+      this.showToast('Error al conectar: ' + error.message, 'error');
+    } finally {
+      const connectBtn = document.getElementById('connectBtn');
+      connectBtn.disabled = false;
+      connectBtn.textContent = 'Conectar';
+    }
+  }
+
+  async disconnect() {
+    try {
+      const response = await this.sendMessage({ type: 'disconnect' });
+      
+      if (response && response.success) {
+        this.updateConnectionStatus({ isConnected: false });
+        this.showToast('Desconectado', 'info');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error desconectando:', error);
+      this.showToast('Error al desconectar', 'error');
+    }
+  }
+
+  async toggleNotifications(enabled) {
+    try {
+      await this.sendMessage({ 
+        type: 'toggleNotifications', 
+        enabled: enabled 
+      });
+      
+      await chrome.storage.sync.set({ notificationsEnabled: enabled });
+      
+      this.showToast(
+        enabled ? 'Notificaciones habilitadas' : 'Notificaciones deshabilitadas',
+        'info'
+      );
+      
+    } catch (error) {
+      console.error('❌ Error actualizando notificaciones:', error);
+    }
+  }
+
+  async toggleSound(enabled) {
+    try {
+      await chrome.storage.sync.set({ soundEnabled: enabled });
+      
+      this.showToast(
+        enabled ? 'Sonido habilitado' : 'Sonido deshabilitado',
+        'info'
+      );
+      
+    } catch (error) {
+      console.error('❌ Error actualizando sonido:', error);
+    }
+  }
+
+  async testConnection() {
+    try {
+      const testBtn = document.getElementById('testBtn');
+      const originalText = testBtn.innerHTML;
+      
+      testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
+      testBtn.disabled = true;
+      
+      // Simular prueba de conexión
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const response = await this.sendMessage({ type: 'getStatus' });
+      
+      if (response && response.isConnected) {
+        this.showToast('Conexión exitosa', 'success');
+      } else {
+        this.showToast('Sin conexión', 'warning');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error probando conexión:', error);
+      this.showToast('Error en la prueba', 'error');
+    } finally {
+      const testBtn = document.getElementById('testBtn');
+      testBtn.innerHTML = '<span class="btn-icon">🧪</span> Probar Conexión';
+      testBtn.disabled = false;
+    }
+  }
+
+  updateConnectionStatus(status) {
     const statusDot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
-    const statusDetails = document.getElementById('statusDetails');
-    const eventCountElement = document.getElementById('eventCount');
-    const uptimeElement = document.getElementById('uptime');
-
-    if (!statusDot || !statusText || !statusDetails) return;
-
-    try {
-      const result = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
-      
-      if (result && result.connected) {
-        statusDot.className = 'status-dot connected';
-        statusText.textContent = 'Conectado';
-        statusDetails.textContent = `Backend: ${result.config?.backendUrl || 'N/A'}`;
-      } else {
-        statusDot.className = 'status-dot disconnected';
-        statusText.textContent = 'Desconectado';
-        statusDetails.textContent = `Intentos de reconexión: ${result?.reconnectAttempts || 0}`;
-      }
-
-      // Actualizar toggle de notificaciones
-      const toggle = document.getElementById('notificationToggle') as HTMLInputElement;
-      if (toggle && result?.config) {
-        toggle.checked = result.config.enabled;
-      }
-
-    } catch (error) {
-      console.error('Error obteniendo estado:', error);
-      statusDot.className = 'status-dot disconnected';
-      statusText.textContent = 'Error';
-      statusDetails.textContent = 'No se pudo conectar con el service worker';
+    const connectionStatus = document.getElementById('connectionStatus');
+    const serverUrl = document.getElementById('serverUrl');
+    const clientId = document.getElementById('clientId');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    
+    if (status.isConnected) {
+      statusDot.className = 'status-dot connected';
+      statusText.textContent = 'Conectado';
+      connectionStatus.textContent = 'Conectado';
+      connectBtn.disabled = true;
+      disconnectBtn.disabled = false;
+    } else {
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'Desconectado';
+      connectionStatus.textContent = 'Desconectado';
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
     }
-
-    // Actualizar contadores
-    this.updateCounters(eventCountElement, uptimeElement);
-  }
-
-  private updateCounters(eventCountElement: HTMLElement | null, uptimeElement: HTMLElement | null): void {
-    // Simular contador de eventos (en una implementación real, esto vendría del backend)
-    if (eventCountElement) {
-      eventCountElement.textContent = this.eventCount.toString();
+    
+    if (status.serverUrl) {
+      serverUrl.textContent = status.serverUrl.replace('http://', '').replace('https://', '');
     }
-
-    // Calcular tiempo activo
-    if (uptimeElement) {
-      const uptimeMs = Date.now() - this.startTime;
-      const minutes = Math.floor(uptimeMs / 60000);
-      const hours = Math.floor(minutes / 60);
-      
-      if (hours > 0) {
-        uptimeElement.textContent = `${hours}h ${minutes % 60}m`;
-      } else {
-        uptimeElement.textContent = `${minutes}m`;
-      }
+    
+    if (status.clientId) {
+      clientId.textContent = status.clientId.substring(0, 8) + '...';
     }
   }
 
-  private async updateNotificationSetting(enabled: boolean): Promise<void> {
-    try {
-      const result = await chrome.runtime.sendMessage({
-        type: 'UPDATE_CONFIG',
-        config: { enabled }
-      });
+  updateUI() {
+    this.updateStats();
+    this.updateRecentEvents();
+    this.updateLastUpdate();
+  }
 
-      if (result && result.success) {
-        this.showStatusMessage(enabled ? 'Notificaciones habilitadas' : 'Notificaciones deshabilitadas', 'success');
-      } else {
-        this.showStatusMessage('Error actualizando configuración', 'error');
-      }
-    } catch (error) {
-      console.error('Error actualizando configuración:', error);
-      this.showStatusMessage('Error actualizando configuración', 'error');
+  updateStats() {
+    document.getElementById('totalEvents').textContent = this.stats.totalEvents;
+    document.getElementById('activeCameras').textContent = this.stats.activeCameras;
+    document.getElementById('notificationsSent').textContent = this.stats.notificationsSent;
+  }
+
+  updateRecentEvents() {
+    const eventsList = document.getElementById('eventsList');
+    
+    if (this.recentEvents.length === 0) {
+      eventsList.innerHTML = `
+        <div class="no-events">
+          <div class="no-events-icon">📭</div>
+          <p>No hay eventos recientes</p>
+        </div>
+      `;
+      return;
+    }
+    
+    eventsList.innerHTML = this.recentEvents.map(event => `
+      <div class="event-item">
+        <div class="event-header">
+          <span class="event-type">${this.getEventTypeLabel(event.type)}</span>
+          <span class="event-time">${this.formatTime(event.timestamp)}</span>
+        </div>
+        <div class="event-camera">${event.camera.name}</div>
+      </div>
+    `).join('');
+  }
+
+  updateLastUpdate() {
+    const lastUpdate = document.getElementById('lastUpdate');
+    const now = new Date();
+    lastUpdate.textContent = now.toLocaleTimeString('es-ES');
+  }
+
+  getEventTypeLabel(eventType) {
+    const labels = {
+      'motion': 'Movimiento',
+      'person': 'Persona',
+      'vehicle': 'Vehículo',
+      'package': 'Paquete',
+      'doorbell': 'Timbre',
+      'smart_detect': 'Smart Detect',
+      'sensor': 'Sensor'
+    };
+    
+    return labels[eventType] || eventType;
+  }
+
+  formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) { // Menos de 1 minuto
+      return 'Ahora';
+    } else if (diff < 3600000) { // Menos de 1 hora
+      const minutes = Math.floor(diff / 60000);
+      return `${minutes}m`;
+    } else if (diff < 86400000) { // Menos de 1 día
+      const hours = Math.floor(diff / 3600000);
+      return `${hours}h`;
+    } else {
+      return date.toLocaleDateString('es-ES');
     }
   }
 
-  private async sendTestNotification(): Promise<void> {
-    try {
-      // Crear notificación de prueba
-      const testEvent = {
-        id: `test-${Date.now()}`,
-        type: 'person',
-        severity: 'medium',
-        timestamp: new Date().toISOString(),
-        camera: {
-          id: 'cam-test',
-          name: 'Cámara de Prueba',
-          type: 'Test',
-          location: 'Ubicación de Prueba'
-        },
-        description: 'Esta es una notificación de prueba para verificar que el sistema funciona correctamente.',
-        metadata: {
-          confidence: 95,
-          zone: 'Zona de Prueba'
-        }
-      };
+  addRecentEvent(event) {
+    this.recentEvents.unshift(event);
+    
+    // Mantener solo los eventos más recientes
+    if (this.recentEvents.length > this.maxRecentEvents) {
+      this.recentEvents = this.recentEvents.slice(0, this.maxRecentEvents);
+    }
+    
+    // Guardar en storage
+    chrome.storage.local.set({ recentEvents: this.recentEvents });
+    
+    // Actualizar UI
+    this.updateRecentEvents();
+  }
 
-      // Simular envío de notificación
-      chrome.notifications.create(`test-${Date.now()}`, {
-        type: 'basic',
-        iconUrl: 'icons/person.png',
-        title: '🧪 Prueba de Notificación',
-        message: `${testEvent.camera.name} - ${testEvent.description}`,
-        contextMessage: 'Notificación de prueba',
-        buttons: [
-          { title: 'Aceptar' }
-        ]
-      });
+  updateStatsFromEvent(event) {
+    this.stats.totalEvents++;
+    this.stats.notificationsSent++;
+    
+    // Guardar en storage
+    chrome.storage.local.set({ stats: this.stats });
+    
+    // Actualizar UI
+    this.updateStats();
+  }
 
-      this.eventCount++;
-      this.showStatusMessage('Notificación de prueba enviada', 'success');
-      
-    } catch (error) {
-      console.error('Error enviando notificación de prueba:', error);
-      this.showStatusMessage('Error enviando notificación de prueba', 'error');
+  handleBackgroundMessage(message) {
+    switch (message.type) {
+      case 'event':
+        this.addRecentEvent(message.data);
+        this.updateStatsFromEvent(message.data);
+        break;
+        
+      case 'status':
+        this.updateConnectionStatus(message.data);
+        break;
+        
+      default:
+        console.log('Mensaje no manejado:', message);
     }
   }
 
-  private startStatusUpdates(): void {
+  startPeriodicUpdates() {
     // Actualizar estado cada 5 segundos
-    this.statusUpdateInterval = window.setInterval(() => {
-      this.updateStatus();
+    setInterval(async () => {
+      try {
+        const response = await this.sendMessage({ type: 'getStatus' });
+        if (response) {
+          this.updateConnectionStatus(response);
+        }
+      } catch (error) {
+        console.error('❌ Error actualizando estado:', error);
+      }
     }, 5000);
   }
 
-  private stopStatusUpdates(): void {
-    if (this.statusUpdateInterval) {
-      clearInterval(this.statusUpdateInterval);
-      this.statusUpdateInterval = null;
-    }
+  sendMessage(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
   }
 
-  private showStatusMessage(message: string, type: 'success' | 'error' | 'info'): void {
-    // Crear mensaje temporal
-    const messageElement = document.createElement('div');
-    messageElement.style.cssText = `
+  showToast(message, type = 'info') {
+    // Crear toast temporal
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
       position: fixed;
       top: 10px;
-      left: 10px;
       right: 10px;
-      padding: 10px;
-      border-radius: 6px;
+      background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#F44336' : '#2196F3'};
       color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
       font-size: 12px;
-      font-weight: 600;
-      text-align: center;
       z-index: 1000;
-      animation: slideDown 0.3s ease-out;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     `;
-
-    switch (type) {
-      case 'success':
-        messageElement.style.background = '#4CAF50';
-        break;
-      case 'error':
-        messageElement.style.background = '#F44336';
-        break;
-      case 'info':
-        messageElement.style.background = '#2196F3';
-        break;
-    }
-
-    messageElement.textContent = message;
-    document.body.appendChild(messageElement);
-
+    
+    document.body.appendChild(toast);
+    
+    // Animar entrada
+    setTimeout(() => {
+      toast.style.opacity = '1';
+    }, 10);
+    
     // Remover después de 3 segundos
     setTimeout(() => {
-      messageElement.style.animation = 'slideUp 0.3s ease-in';
+      toast.style.opacity = '0';
       setTimeout(() => {
-        if (messageElement.parentNode) {
-          messageElement.parentNode.removeChild(messageElement);
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
         }
       }, 300);
     }, 3000);
   }
-
-  private openHelp(): void {
-    // Crear ventana de ayuda
-    const helpWindow = window.open('', '_blank', 'width=600,height=400,scrollbars=yes');
-    if (helpWindow) {
-      helpWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Ayuda - UniFi Protect Notifications</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
-            h1 { color: #333; }
-            h2 { color: #666; margin-top: 20px; }
-            code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
-            .step { margin: 10px 0; padding: 10px; background: #f9f9f9; border-radius: 5px; }
-          </style>
-        </head>
-        <body>
-          <h1>🔔 Ayuda - UniFi Protect Notifications</h1>
-          
-          <h2>Configuración Inicial</h2>
-          <div class="step">
-            <strong>1. Configurar Backend:</strong><br>
-            Asegúrate de que el backend esté ejecutándose en <code>http://localhost:3000</code>
-          </div>
-          
-          <div class="step">
-            <strong>2. Configurar UniFi Protect:</strong><br>
-            Actualiza las credenciales en el archivo <code>.env</code> del backend
-          </div>
-          
-          <div class="step">
-            <strong>3. Habilitar Notificaciones:</strong><br>
-            Usa el toggle en el popup o ve a Configuración > Conexión al Backend
-          </div>
-          
-          <h2>Funcionalidades</h2>
-          <ul>
-            <li><strong>Notificaciones en Tiempo Real:</strong> Recibe alertas instantáneas de eventos</li>
-            <li><strong>Filtros Avanzados:</strong> Configura qué eventos y cámaras monitorear</li>
-            <li><strong>Notificaciones Nativas:</strong> Funciona incluso con el navegador cerrado</li>
-            <li><strong>Reconexión Automática:</strong> Se reconecta automáticamente si se pierde la conexión</li>
-          </ul>
-          
-          <h2>Solución de Problemas</h2>
-          <div class="step">
-            <strong>No se reciben notificaciones:</strong><br>
-            • Verifica que el backend esté ejecutándose<br>
-            • Comprueba la URL del backend en configuración<br>
-            • Asegúrate de que las notificaciones estén habilitadas
-          </div>
-          
-          <div class="step">
-            <strong>Error de conexión:</strong><br>
-            • Verifica que el puerto 3000 esté libre<br>
-            • Comprueba la configuración de UniFi Protect<br>
-            • Revisa los logs del backend
-          </div>
-          
-          <h2>Contacto</h2>
-          <p>Para soporte técnico o reportar bugs, contacta al desarrollador.</p>
-        </body>
-        </html>
-      `);
-      helpWindow.document.close();
-    }
-  }
-
-  // Limpiar cuando se cierre el popup
-  public destroy(): void {
-    this.stopStatusUpdates();
-  }
 }
 
-// Agregar estilos de animación
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideDown {
-    from {
-      transform: translateY(-100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-  
-  @keyframes slideUp {
-    from {
-      transform: translateY(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateY(-100%);
-      opacity: 0;
-    }
-  }
-`;
-document.head.appendChild(style);
-
-// Inicializar cuando el DOM esté listo
-let popupManager: PopupManager;
-
+// Inicializar el popup cuando se carga el DOM
 document.addEventListener('DOMContentLoaded', () => {
-  popupManager = new PopupManager();
+  new PopupController();
 });
-
-// Limpiar cuando se cierre la ventana
-window.addEventListener('beforeunload', () => {
-  if (popupManager) {
-    popupManager.destroy();
-  }
-});
-

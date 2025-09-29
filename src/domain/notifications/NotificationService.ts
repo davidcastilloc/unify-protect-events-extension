@@ -17,5 +17,6 @@ export interface INotificationService {
   removeClient(clientId: string): void;
   broadcastEvent(event: UnifiEvent): void;
   getConnectedClients(): NotificationClient[];
+  updateClientFilters(clientId: string, filters: any): void;
 }
 

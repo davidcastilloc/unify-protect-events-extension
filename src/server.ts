@@ -51,7 +51,7 @@ class UnifiNotificationServer {
   private setupMiddleware(): void {
     this.app.use(helmet());
     this.app.use(cors({
-      origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+      origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
       credentials: true
     }));
     this.app.use(express.json());
@@ -98,6 +98,7 @@ class UnifiNotificationServer {
         clients: this.notificationService?.getClientCount() || 0
       });
     });
+
   }
 
   private setupWebSocketServer(): void {
@@ -108,6 +109,10 @@ class UnifiNotificationServer {
     };
 
     this.wsServer = new WebSocketServer(this.server, config);
+    
+    // Conectar el WebSocketServer con el NotificationService
+    this.wsServer.setNotificationService(this.notificationService);
+    
     logger.info('Servidor WebSocket configurado');
   }
 

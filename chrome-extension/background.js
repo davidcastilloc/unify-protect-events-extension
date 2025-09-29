@@ -1,346 +1,509 @@
-// UniFi Protect Notifications Background Service Worker
-class UnifiNotificationBackground {
-    constructor() {
-        this.ws = null;
-        this.config = {
-            backendUrl: 'http://localhost:3000',
-            clientId: `chrome-extension-${Date.now()}`,
-            enabled: true,
-            filters: {
-                types: ['motion', 'person', 'vehicle', 'doorbell'],
-                severity: ['low', 'medium', 'high', 'critical'],
-                cameras: []
-            }
+// Background script para la extensión de UniFi Protect
+class UnifiProtectExtension {
+  constructor() {
+    this.ws = null;
+    this.isConnected = false;
+    this.clientId = this.generateClientId();
+    this.token = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 5000;
+    
+    this.init();
+  }
+
+  init() {
+    console.log('🚀 Iniciando extensión UniFi Protect');
+    
+    // Cargar configuración guardada
+    this.loadSettings();
+    
+    // Configurar listeners de eventos
+    this.setupEventListeners();
+    
+    // Iniciar heartbeat para mantener conexión
+    this.startHeartbeat();
+    
+    // Conectar al servidor
+    this.connectToServer();
+  }
+
+  generateClientId() {
+    return 'chrome-extension-' + Math.random().toString(36).substr(2, 9);
+  }
+
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.sync.get([
+        'serverUrl',
+        'notificationsEnabled',
+        'eventFilters',
+        'soundEnabled'
+      ]);
+      
+      this.serverUrl = result.serverUrl || 'http://localhost:3001';
+      this.notificationsEnabled = result.notificationsEnabled !== false;
+      this.eventFilters = result.eventFilters || {
+        enabled: true,
+        types: ['motion', 'person', 'vehicle', 'package', 'doorbell', 'smart_detect', 'sensor'],
+        severity: ['low', 'medium', 'high', 'critical'],
+        cameras: []
+      };
+      this.soundEnabled = result.soundEnabled !== false;
+      
+      console.log('⚙️ Configuración cargada:', {
+        serverUrl: this.serverUrl,
+        notificationsEnabled: this.notificationsEnabled,
+        soundEnabled: this.soundEnabled
+      });
+    } catch (error) {
+      console.error('❌ Error cargando configuración:', error);
+    }
+  }
+
+  setupEventListeners() {
+    // Listener para mensajes del popup
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      this.handleMessage(message, sender, sendResponse);
+      return true; // Mantener el canal abierto para respuesta asíncrona
+    });
+
+    // Listener para cuando se instala la extensión
+    chrome.runtime.onInstalled.addListener(() => {
+      console.log('📦 Extensión instalada');
+      this.showWelcomeNotification();
+    });
+
+    // Listener para notificaciones clickeadas
+    chrome.notifications.onClicked.addListener((notificationId) => {
+      this.handleNotificationClick(notificationId);
+    });
+  }
+
+  async handleMessage(message, sender, sendResponse) {
+    try {
+      switch (message.type) {
+        case 'getStatus':
+          sendResponse({
+            isConnected: this.isConnected,
+            clientId: this.clientId,
+            serverUrl: this.serverUrl
+          });
+          break;
+
+        case 'connect':
+          await this.connectToServer();
+          sendResponse({ success: this.isConnected });
+          break;
+
+        case 'disconnect':
+          this.disconnect();
+          sendResponse({ success: true });
+          break;
+
+        case 'updateFilters':
+          this.eventFilters = message.filters;
+          await chrome.storage.sync.set({ eventFilters: this.eventFilters });
+          this.sendFiltersToServer();
+          sendResponse({ success: true });
+          break;
+
+        case 'toggleNotifications':
+          this.notificationsEnabled = message.enabled;
+          await chrome.storage.sync.set({ notificationsEnabled: this.notificationsEnabled });
+          sendResponse({ success: true });
+          break;
+
+        case 'getCameras':
+          const cameras = await this.getCameras();
+          sendResponse({ cameras });
+          break;
+
+        default:
+          sendResponse({ error: 'Tipo de mensaje no reconocido' });
+      }
+    } catch (error) {
+      console.error('❌ Error manejando mensaje:', error);
+      sendResponse({ error: error.message });
+    }
+  }
+
+  async connectToServer() {
+    try {
+      console.log('🔗 Conectando al servidor...');
+      
+      // Obtener token de autenticación
+      await this.getAuthToken();
+      
+      if (!this.token) {
+        throw new Error('No se pudo obtener token de autenticación');
+      }
+
+      // Conectar WebSocket
+      await this.connectWebSocket();
+      
+    } catch (error) {
+      console.error('❌ Error conectando al servidor:', error);
+      this.handleConnectionError(error);
+    }
+  }
+
+  async getAuthToken() {
+    try {
+      const response = await fetch(`${this.serverUrl}/auth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ clientId: this.clientId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.token = data.token;
+      console.log('🔑 Token obtenido exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error obteniendo token:', error);
+      throw error;
+    }
+  }
+
+  connectWebSocket() {
+    return new Promise((resolve, reject) => {
+      try {
+        const wsUrl = `${this.serverUrl.replace('http', 'ws')}/ws?token=${this.token}`;
+        console.log('🔌 Conectando WebSocket:', wsUrl);
+        
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+          console.log('✅ WebSocket conectado');
+          this.isConnected = true;
+          this.reconnectAttempts = 0;
+          this.updateBadge('ON', '#4CAF50');
+          
+          // Enviar filtros al servidor
+          this.sendFiltersToServer();
+          
+          resolve();
         };
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 1000; // 1 segundo inicial
-        this.initialize();
-    }
 
-    async initialize() {
-        console.log('Inicializando UniFi Protect Notifications...');
-        // Cargar configuración guardada
-        await this.loadConfig();
-        // Configurar listeners de Chrome
-        this.setupChromeListeners();
-        // Conectar al WebSocket si está habilitado
-        if (this.config.enabled) {
-            await this.connectToBackend();
-        }
-    }
+        this.ws.onmessage = (event) => {
+          this.handleWebSocketMessage(event);
+        };
 
-    async loadConfig() {
-        try {
-            const result = await chrome.storage.sync.get(['notificationConfig']);
-            if (result.notificationConfig) {
-                this.config = { ...this.config, ...result.notificationConfig };
-                console.log('Configuración cargada:', this.config);
-            }
-        } catch (error) {
-            console.error('Error cargando configuración:', error);
-        }
-    }
-
-    async saveConfig() {
-        try {
-            await chrome.storage.sync.set({ notificationConfig: this.config });
-            console.log('Configuración guardada');
-        } catch (error) {
-            console.error('Error guardando configuración:', error);
-        }
-    }
-
-    setupChromeListeners() {
-        // Listener para mensajes desde popup/options
-        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            this.handleMessage(message, sender, sendResponse);
-            return true; // Mantener canal abierto para respuesta asíncrona
-        });
-
-        // Listener para clics en notificaciones
-        chrome.notifications.onClicked.addListener((notificationId) => {
-            this.handleNotificationClick(notificationId);
-        });
-
-        // Listener para cuando se instala/actualiza la extensión
-        chrome.runtime.onInstalled.addListener((details) => {
-            console.log('Extensión instalada/actualizada:', details);
-            this.showWelcomeNotification();
-        });
-    }
-
-    async handleMessage(message, sender, sendResponse) {
-        switch (message.type) {
-            case 'GET_CONFIG':
-                sendResponse({ config: this.config });
-                break;
-
-            case 'UPDATE_CONFIG':
-                this.config = { ...this.config, ...message.config };
-                await this.saveConfig();
-                
-                // Reconectar si cambió la URL del backend
-                if (message.config.backendUrl || message.config.enabled !== undefined) {
-                    await this.reconnect();
-                }
-                
-                sendResponse({ success: true });
-                break;
-
-            case 'TEST_CONNECTION':
-                const isConnected = await this.testConnection();
-                sendResponse({ connected: isConnected });
-                break;
-
-            case 'GET_STATUS':
-                sendResponse({
-                    connected: this.ws?.readyState === WebSocket.OPEN,
-                    config: this.config,
-                    reconnectAttempts: this.reconnectAttempts
-                });
-                break;
-        }
-    }
-
-    async connectToBackend() {
-        try {
-            // Obtener token de autenticación
-            const token = await this.getAuthToken();
-            if (!token) {
-                console.error('No se pudo obtener token de autenticación');
-                return;
-            }
-
-            // Conectar al WebSocket
-            const wsUrl = `${this.config.backendUrl.replace('http', 'ws')}/ws?token=${token}`;
-            this.ws = new WebSocket(wsUrl);
-
-            this.ws.onopen = () => {
-                console.log('Conectado al backend UniFi Protect');
-                this.reconnectAttempts = 0;
-                this.reconnectDelay = 1000;
-                this.updateBadge('ON', '#4CAF50');
-            };
-
-            this.ws.onmessage = (event) => {
-                this.handleWebSocketMessage(event);
-            };
-
-            this.ws.onclose = () => {
-                console.log('Conexión WebSocket cerrada');
-                this.updateBadge('OFF', '#F44336');
-                this.scheduleReconnect();
-            };
-
-            this.ws.onerror = (error) => {
-                console.error('Error en WebSocket:', error);
-                this.updateBadge('ERR', '#FF9800');
-            };
-
-        } catch (error) {
-            console.error('Error conectando al backend:', error);
+        this.ws.onclose = (event) => {
+          console.log('🔌 WebSocket desconectado:', event.code, event.reason);
+          this.isConnected = false;
+          this.updateBadge('OFF', '#F44336');
+          
+          // Intentar reconectar si no fue un cierre intencional
+          if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
             this.scheduleReconnect();
-        }
-    }
-
-    async getAuthToken() {
-        try {
-            const response = await fetch(`${this.config.backendUrl}/auth/token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ clientId: this.config.clientId })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                return data.token;
-            } else {
-                console.error('Error obteniendo token:', response.statusText);
-                return null;
-            }
-        } catch (error) {
-            console.error('Error en request de token:', error);
-            return null;
-        }
-    }
-
-    handleWebSocketMessage(event) {
-        try {
-            const message = JSON.parse(event.data);
-            
-            switch (message.type) {
-                case 'connected':
-                    console.log('Confirmación de conexión recibida');
-                    break;
-
-                case 'notification':
-                    this.handleNotification(message.payload);
-                    break;
-
-                case 'pong':
-                    // Respuesta a ping - conexión viva
-                    break;
-
-                default:
-                    console.log('Mensaje WebSocket no reconocido:', message.type);
-            }
-        } catch (error) {
-            console.error('Error procesando mensaje WebSocket:', error);
-        }
-    }
-
-    handleNotification(payload) {
-        const event = payload.event;
-        
-        // Aplicar filtros
-        if (!this.shouldShowNotification(event)) {
-            console.log(`Notificación filtrada para evento ${event.id}`);
-            return;
-        }
-
-        // Crear notificación nativa
-        this.createNotification(event);
-    }
-
-    shouldShowNotification(event) {
-        const filters = this.config.filters;
-
-        // Verificar tipo de evento
-        if (filters.types.length > 0 && !filters.types.includes(event.type)) {
-            return false;
-        }
-
-        // Verificar severidad
-        if (filters.severity.length > 0 && !filters.severity.includes(event.severity)) {
-            return false;
-        }
-
-        // Verificar cámaras específicas
-        if (filters.cameras.length > 0 && !filters.cameras.includes(event.camera.id)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    createNotification(event) {
-        const notificationId = `unifi-${event.id}`;
-        const iconUrl = this.getEventIcon(event.type);
-        
-        const notificationOptions = {
-            type: 'basic',
-            iconUrl: iconUrl,
-            title: `${event.camera.name} - ${this.getEventTitle(event.type)}`,
-            message: `${event.description}\n${event.camera.location || 'Ubicación no especificada'}`,
-            contextMessage: `Severidad: ${event.severity.toUpperCase()}`,
-            buttons: [
-                { title: 'Ver Detalles' },
-                { title: 'Abrir Cámara' }
-            ],
-            requireInteraction: event.severity === 'critical',
-            silent: event.severity === 'low'
+          }
         };
 
-        chrome.notifications.create(notificationId, notificationOptions, (notificationId) => {
-            if (chrome.runtime.lastError) {
-                console.error('Error creando notificación:', chrome.runtime.lastError);
-            } else {
-                console.log(`Notificación creada: ${notificationId}`);
-            }
-        });
-    }
-
-    getEventIcon(eventType) {
-        const icons = {
-            motion: 'icons/motion.png',
-            person: 'icons/person.png',
-            vehicle: 'icons/vehicle.png',
-            package: 'icons/package.png',
-            doorbell: 'icons/doorbell.png',
-            smart_detect: 'icons/smart-detect.png'
+        this.ws.onerror = (error) => {
+          console.error('❌ Error en WebSocket:', error);
+          reject(error);
         };
-        
-        return icons[eventType] || 'icons/icon48.png';
+
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  handleWebSocketMessage(event) {
+    try {
+      const message = JSON.parse(event.data);
+      console.log('📨 Mensaje recibido:', message);
+
+      switch (message.type) {
+        case 'connected':
+          console.log('✅ Conectado al servidor:', message.clientId);
+          break;
+
+        case 'event':
+          this.handleUnifiEvent(message.data);
+          break;
+
+        case 'pong':
+          console.log('🏓 Pong recibido');
+          break;
+
+        default:
+          console.log('❓ Tipo de mensaje desconocido:', message.type);
+      }
+    } catch (error) {
+      console.error('❌ Error procesando mensaje WebSocket:', error);
+    }
+  }
+
+  handleUnifiEvent(event) {
+    console.log('🎯 Evento UniFi recibido:', event);
+    
+    // Verificar si debemos mostrar notificación
+    if (this.shouldShowNotification(event)) {
+      this.showNotification(event);
+    }
+    
+    // También enviar el evento a cualquier ventana abierta del popup
+    this.broadcastEventToPopup(event);
+  }
+
+  shouldShowNotification(event) {
+    if (!this.notificationsEnabled) {
+      return false;
     }
 
-    getEventTitle(eventType) {
-        const titles = {
-            motion: 'Movimiento Detectado',
-            person: 'Persona Detectada',
-            vehicle: 'Vehículo Detectado',
-            package: 'Paquete Detectado',
-            doorbell: 'Timbre Presionado',
-            smart_detect: 'Detección Inteligente'
-        };
-        
-        return titles[eventType] || 'Evento Detectado';
+    const filters = this.eventFilters;
+    
+    // Verificar si las notificaciones están habilitadas
+    if (!filters.enabled) {
+      return false;
     }
 
-    handleNotificationClick(notificationId) {
-        console.log('Notificación clickeada:', notificationId);
-        // Aquí podrías abrir una página con detalles del evento
-        // o abrir la interfaz de UniFi Protect
-        chrome.notifications.clear(notificationId);
+    // Verificar tipo de evento
+    if (filters.types && filters.types.length > 0 && !filters.types.includes(event.type)) {
+      return false;
     }
 
-    updateBadge(text, color) {
-        chrome.action.setBadgeText({ text });
-        chrome.action.setBadgeBackgroundColor({ color });
+    // Verificar severidad
+    if (filters.severity && filters.severity.length > 0 && !filters.severity.includes(event.severity)) {
+      return false;
     }
 
-    scheduleReconnect() {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.log('Máximo número de intentos de reconexión alcanzado');
-            this.updateBadge('FAIL', '#F44336');
-            return;
-        }
-
-        this.reconnectAttempts++;
-        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Backoff exponencial
-        
-        console.log(`Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts})`);
-        
-        setTimeout(() => {
-            if (this.config.enabled) {
-                this.connectToBackend();
-            }
-        }, delay);
+    // Verificar cámaras específicas
+    if (filters.cameras && filters.cameras.length > 0 && !filters.cameras.includes(event.camera.id)) {
+      return false;
     }
 
-    async reconnect() {
-        if (this.ws) {
-            this.ws.close();
-        }
-        
-        if (this.config.enabled) {
-            await this.connectToBackend();
-        }
-    }
+    return true;
+  }
 
-    async testConnection() {
-        try {
-            const response = await fetch(`${this.config.backendUrl}/health`);
-            return response.ok;
-        } catch (error) {
-            return false;
-        }
-    }
+  async showNotification(event) {
+    try {
+      const iconUrl = this.getEventIcon(event.type);
+      const title = this.getEventTitle(event);
+      const message = this.getEventMessage(event);
+      
+      const notificationId = `unifi-event-${event.id}`;
+      
+      await chrome.notifications.create(notificationId, {
+        type: 'basic',
+        iconUrl: iconUrl,
+        title: title,
+        message: message,
+        contextMessage: event.camera.name,
+        priority: this.getNotificationPriority(event.severity),
+        requireInteraction: event.severity === 'critical'
+      });
 
-    showWelcomeNotification() {
-        chrome.notifications.create('welcome', {
-            type: 'basic',
-            iconUrl: 'icons/icon48.png',
-            title: 'UniFi Protect Notifications',
-            message: 'Extensión instalada correctamente. Configura la conexión en las opciones.',
-            buttons: [
-                { title: 'Configurar' }
-            ]
-        });
+      // Reproducir sonido si está habilitado
+      if (this.soundEnabled) {
+        this.playNotificationSound(event.type);
+      }
+
+      console.log('🔔 Notificación mostrada:', notificationId);
+      
+    } catch (error) {
+      console.error('❌ Error mostrando notificación:', error);
     }
+  }
+
+  getEventIcon(eventType) {
+    const iconMap = {
+      'motion': 'icons/motion.png',
+      'person': 'icons/person.png',
+      'vehicle': 'icons/vehicle.png',
+      'package': 'icons/package.png',
+      'doorbell': 'icons/doorbell.png',
+      'smart_detect': 'icons/smart-detect.png',
+      'sensor': 'icons/sensor.png'
+    };
+    
+    return iconMap[eventType] || 'icons/icon48.png';
+  }
+
+  getEventTitle(event) {
+    const titleMap = {
+      'motion': 'Movimiento Detectado',
+      'person': 'Persona Detectada',
+      'vehicle': 'Vehículo Detectado',
+      'package': 'Paquete Detectado',
+      'doorbell': 'Timbre Presionado',
+      'smart_detect': 'Detección Inteligente',
+      'sensor': 'Evento de Sensor'
+    };
+    
+    return titleMap[event.type] || 'Evento UniFi';
+  }
+
+  getEventMessage(event) {
+    const timestamp = new Date(event.timestamp).toLocaleString('es-ES');
+    return `${event.description}\nCámara: ${event.camera.name}\nHora: ${timestamp}`;
+  }
+
+  getNotificationPriority(severity) {
+    const priorityMap = {
+      'low': 0,
+      'medium': 1,
+      'high': 2,
+      'critical': 2
+    };
+    
+    return priorityMap[severity] || 1;
+  }
+
+  playNotificationSound(eventType) {
+    // Crear un audio context para reproducir sonidos
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Diferentes frecuencias según el tipo de evento
+      const frequencyMap = {
+        'doorbell': 800,
+        'person': 600,
+        'vehicle': 500,
+        'motion': 400,
+        'sensor': 300
+      };
+      
+      oscillator.frequency.setValueAtTime(frequencyMap[eventType] || 500, audioContext.currentTime);
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+      
+    } catch (error) {
+      console.error('❌ Error reproduciendo sonido:', error);
+    }
+  }
+
+  handleNotificationClick(notificationId) {
+    console.log('👆 Notificación clickeada:', notificationId);
+    
+    // Abrir la página de UniFi Protect o el popup
+    chrome.action.openPopup();
+  }
+
+  sendFiltersToServer() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const message = {
+        type: 'update_filters',
+        filters: this.eventFilters
+      };
+      
+      this.ws.send(JSON.stringify(message));
+      console.log('📤 Filtros enviados al servidor');
+    }
+  }
+
+  async getCameras() {
+    try {
+      const response = await fetch(`${this.serverUrl}/api/cameras`);
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      
+      const cameras = await response.json();
+      console.log('📹 Cámaras obtenidas:', cameras);
+      return cameras;
+      
+    } catch (error) {
+      console.error('❌ Error obteniendo cámaras:', error);
+      return [];
+    }
+  }
+
+  scheduleReconnect() {
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    
+    console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    
+    setTimeout(() => {
+      if (this.reconnectAttempts <= this.maxReconnectAttempts) {
+        this.connectToServer();
+      }
+    }, delay);
+  }
+
+  handleConnectionError(error) {
+    console.error('❌ Error de conexión:', error);
+    this.updateBadge('ERR', '#FF9800');
+    
+    // Mostrar notificación de error
+    chrome.notifications.create('connection-error', {
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: 'Error de Conexión UniFi',
+      message: `No se pudo conectar al servidor: ${error.message}`,
+      priority: 1
+    });
+  }
+
+  updateBadge(text, color) {
+    chrome.action.setBadgeText({ text: text });
+    chrome.action.setBadgeBackgroundColor({ color: color });
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close(1000, 'Desconexión intencional');
+      this.ws = null;
+    }
+    
+    this.isConnected = false;
+    this.updateBadge('OFF', '#F44336');
+    console.log('🔌 Desconectado del servidor');
+  }
+
+  showWelcomeNotification() {
+    chrome.notifications.create('welcome', {
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: 'UniFi Protect Notifications',
+      message: 'Extensión instalada correctamente. Configura el servidor en las opciones.',
+      priority: 0
+    });
+  }
+
+  broadcastEventToPopup(event) {
+    // Enviar evento a todas las ventanas abiertas del popup
+    chrome.runtime.sendMessage({
+      type: 'unifiEvent',
+      event: event
+    }).catch(() => {
+      // Ignorar errores si no hay popup abierto
+    });
+  }
+
+  // Método para mantener la conexión activa
+  startHeartbeat() {
+    setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          type: 'ping',
+          timestamp: new Date().toISOString()
+        }));
+      }
+    }, 30000); // Ping cada 30 segundos
+  }
 }
 
-// Inicializar el service worker
-new UnifiNotificationBackground();
+// Inicializar la extensión
+const unifiExtension = new UnifiProtectExtension();

@@ -1,341 +1,129 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UniFi Protect Notifications</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            width: 350px;
-            min-height: 400px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .header {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-
-        .header h1 {
-            font-size: 18px;
-            margin-bottom: 5px;
-        }
-
-        .header p {
-            font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .content {
-            padding: 20px;
-        }
-
-        .status-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 10px;
-            animation: pulse 2s infinite;
-        }
-
-        .status-dot.connected {
-            background: #4CAF50;
-        }
-
-        .status-dot.disconnected {
-            background: #F44336;
-        }
-
-        .status-dot.connecting {
-            background: #FF9800;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .status-text {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .status-details {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .stat-item {
-            text-align: center;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 6px;
-            backdrop-filter: blur(10px);
-        }
-
-        .stat-number {
-            font-size: 20px;
-            font-weight: bold;
-            display: block;
-        }
-
-        .stat-label {
-            font-size: 10px;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        button {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            backdrop-filter: blur(10px);
-        }
-
-        button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 28px;
-            margin-left: auto;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.3);
-            transition: .4s;
-            border-radius: 28px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: #4CAF50;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(22px);
-        }
-
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            backdrop-filter: blur(10px);
-        }
-
-        .toggle-label {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .footer a {
-            color: white;
-            text-decoration: none;
-            font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .footer a:hover {
-            opacity: 1;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .spinner {
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .notification-preview {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            backdrop-filter: blur(10px);
-            border-left: 4px solid #4CAF50;
-        }
-
-        .notification-title {
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        .notification-message {
-            font-size: 12px;
-            opacity: 0.9;
-            line-height: 1.4;
-        }
-
-        .notification-time {
-            font-size: 10px;
-            opacity: 0.7;
-            margin-top: 5px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniFi Protect Notifications</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <div class="container">
+    <!-- Header -->
     <div class="header">
-        <h1>🔔 UniFi Protect</h1>
-        <p>Notificaciones en Tiempo Real</p>
+      <div class="logo">
+        <img src="icons/icon48.png" alt="UniFi Protect" class="logo-icon">
+        <h1>UniFi Protect</h1>
+      </div>
+      <div class="status-indicator" id="statusIndicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Conectando...</span>
+      </div>
     </div>
 
-    <div class="content">
-        <div class="status-card">
-            <div class="status-indicator">
-                <div id="statusDot" class="status-dot disconnected"></div>
-                <div id="statusText" class="status-text">Desconectado</div>
-            </div>
-            <div id="statusDetails" class="status-details">
-                Verificando conexión...
-            </div>
-            
-            <div class="stats">
-                <div class="stat-item">
-                    <span id="eventCount" class="stat-number">0</span>
-                    <div class="stat-label">Eventos Hoy</div>
-                </div>
-                <div class="stat-item">
-                    <span id="uptime" class="stat-number">0m</span>
-                    <div class="stat-label">Tiempo Activo</div>
-                </div>
-            </div>
+    <!-- Connection Status -->
+    <div class="status-section">
+      <div class="status-card">
+        <div class="status-info">
+          <div class="status-item">
+            <span class="label">Estado:</span>
+            <span class="value" id="connectionStatus">Desconocido</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Servidor:</span>
+            <span class="value" id="serverUrl">localhost:3001</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Cliente ID:</span>
+            <span class="value" id="clientId">-</span>
+          </div>
         </div>
-
-        <div class="toggle-container">
-            <div class="toggle-label">Notificaciones</div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="notificationToggle" checked>
-                <span class="slider"></span>
-            </label>
+        <div class="status-actions">
+          <button id="connectBtn" class="btn btn-primary">Conectar</button>
+          <button id="disconnectBtn" class="btn btn-secondary" disabled>Desconectar</button>
         </div>
-
-        <div class="controls">
-            <button id="testNotification">Probar Notificación</button>
-            <button id="refreshStatus">Actualizar</button>
-        </div>
-
-        <div class="notification-preview">
-            <div class="notification-title">📹 Cámara Principal - Persona Detectada</div>
-            <div class="notification-message">Se detectó una persona en la entrada principal. Severidad: ALTA</div>
-            <div class="notification-time">Hace 2 minutos</div>
-        </div>
-
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Actualizando...</p>
-        </div>
+      </div>
     </div>
 
+    <!-- Quick Controls -->
+    <div class="controls-section">
+      <div class="control-group">
+        <label class="control-label">
+          <input type="checkbox" id="notificationsToggle" checked>
+          <span class="checkmark"></span>
+          Notificaciones Habilitadas
+        </label>
+      </div>
+      
+      <div class="control-group">
+        <label class="control-label">
+          <input type="checkbox" id="soundToggle" checked>
+          <span class="checkmark"></span>
+          Sonido Habilitado
+        </label>
+      </div>
+    </div>
+
+    <!-- Event Statistics -->
+    <div class="stats-section">
+      <h3>Estadísticas de Eventos</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-info">
+            <div class="stat-number" id="totalEvents">0</div>
+            <div class="stat-label">Eventos Totales</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">📹</div>
+          <div class="stat-info">
+            <div class="stat-number" id="activeCameras">0</div>
+            <div class="stat-label">Cámaras Activas</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">🔔</div>
+          <div class="stat-info">
+            <div class="stat-number" id="notificationsSent">0</div>
+            <div class="stat-label">Notificaciones</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Events -->
+    <div class="events-section">
+      <h3>Eventos Recientes</h3>
+      <div class="events-list" id="eventsList">
+        <div class="no-events">
+          <div class="no-events-icon">📭</div>
+          <p>No hay eventos recientes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-section">
+      <button id="optionsBtn" class="btn btn-outline">
+        <span class="btn-icon">⚙️</span>
+        Configuración
+      </button>
+      <button id="testBtn" class="btn btn-outline">
+        <span class="btn-icon">🧪</span>
+        Probar Conexión
+      </button>
+    </div>
+
+    <!-- Footer -->
     <div class="footer">
-        <a href="#" id="openOptions">⚙️ Configuración</a>
-        <span style="margin: 0 10px;">•</span>
-        <a href="#" id="openHelp">❓ Ayuda</a>
+      <div class="footer-info">
+        <span>v1.0.0</span>
+        <span>•</span>
+        <span id="lastUpdate">Nunca</span>
+      </div>
     </div>
+  </div>
 
-    <script src="popup.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>
-

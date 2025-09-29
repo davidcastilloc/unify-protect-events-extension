@@ -2,6 +2,7 @@ import { WebSocketServer as WSWebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import jwt from 'jsonwebtoken';
 import { NotificationClient } from '../../domain/notifications/NotificationService';
+import { INotificationService } from '../../domain/notifications/NotificationService';
 
 export interface WebSocketConfig {
   port: number;
@@ -13,6 +14,7 @@ export class WebSocketServer {
   private wss: WSWebSocketServer;
   private clients: Map<string, NotificationClient> = new Map();
   private jwtSecret: string;
+  private notificationService?: INotificationService;
 
   constructor(server: Server, config: WebSocketConfig) {
     this.jwtSecret = config.jwtSecret;
@@ -48,6 +50,12 @@ export class WebSocketServer {
         };
 
         this.clients.set(clientId, client);
+        
+        // Registrar cliente en el servicio de notificaciones
+        if (this.notificationService) {
+          this.notificationService.addClient(client);
+        }
+        
         console.log(`Cliente ${clientId} conectado`);
 
         // Enviar mensaje de bienvenida
@@ -87,12 +95,23 @@ export class WebSocketServer {
 
     ws.on('close', () => {
       this.clients.delete(client.id);
+      
+      // Remover cliente del servicio de notificaciones
+      if (this.notificationService) {
+        this.notificationService.removeClient(client.id);
+      }
+      
       console.log(`Cliente ${client.id} desconectado`);
     });
 
     ws.on('error', (error: Error) => {
       console.error(`Error en WebSocket del cliente ${client.id}:`, error);
       this.clients.delete(client.id);
+      
+      // Remover cliente del servicio de notificaciones
+      if (this.notificationService) {
+        this.notificationService.removeClient(client.id);
+      }
     });
 
     // Ping/pong para mantener conexión viva
@@ -105,6 +124,12 @@ export class WebSocketServer {
     switch (message.type) {
       case 'update_filters':
         client.filters = message.filters;
+        
+        // Actualizar filtros en el servicio de notificaciones
+        if (this.notificationService && 'updateClientFilters' in this.notificationService) {
+          (this.notificationService as any).updateClientFilters(client.id, message.filters);
+        }
+        
         console.log(`Filtros actualizados para cliente ${client.id}`);
         break;
       
@@ -179,6 +204,10 @@ export class WebSocketServer {
       this.jwtSecret,
       { expiresIn: '7d' }
     );
+  }
+
+  public setNotificationService(notificationService: INotificationService): void {
+    this.notificationService = notificationService;
   }
 }
 
