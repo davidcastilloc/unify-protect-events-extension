@@ -21,7 +21,10 @@ export class WebSocketServer {
     
     this.wss = new WSWebSocketServer({
       server,
-      path: '/ws'
+      path: '/ws',
+      // Configuraciones de estabilidad
+      maxPayload: 1024 * 1024, // 1MB máximo por mensaje
+      perMessageDeflate: false // Deshabilitar compresión para mejor rendimiento
     });
 
     this.setupWebSocketHandlers();
@@ -31,6 +34,14 @@ export class WebSocketServer {
   private setupWebSocketHandlers(): void {
     this.wss.on('connection', (ws: WebSocket, request) => {
       console.log('Nueva conexión WebSocket intentada');
+
+      // Configurar timeout para esta conexión específica usando un timer personalizado
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState === 1) { // WebSocket.OPEN
+          console.log('⏰ Timeout de conexión WebSocket');
+          ws.close(1000, 'Connection timeout');
+        }
+      }, parseInt(process.env.WS_CONNECTION_TIMEOUT || '90000')); // 90 segundos por defecto
 
       // Verificar autenticación
       const token = this.extractTokenFromRequest(request);
@@ -69,10 +80,14 @@ export class WebSocketServer {
           timestamp: new Date().toISOString()
         }));
 
+        // Limpiar timeout de conexión ya que se estableció correctamente
+        clearTimeout(connectionTimeout);
+        
         // Configurar handlers del WebSocket
         this.setupClientHandlers(client);
 
       } catch (error) {
+        clearTimeout(connectionTimeout);
         console.error('Error de autenticación:', error);
         ws.close(1008, 'Token inválido');
       }
@@ -218,16 +233,31 @@ export class WebSocketServer {
     setInterval(() => {
       this.clients.forEach((client) => {
         if (client.socket.readyState === 1) { // WebSocket.OPEN
+          // Verificar si el cliente respondió al último ping
+          const timeSinceLastSeen = Date.now() - client.lastSeen.getTime();
+          const timeoutThreshold = parseInt(process.env.WS_CONNECTION_TIMEOUT || '90000');
+          if (timeSinceLastSeen > timeoutThreshold) {
+            console.log(`⏰ Cliente ${client.id} inactivo (${Math.round(timeSinceLastSeen/1000)}s), cerrando conexión`);
+            client.socket.close(1000, 'Connection timeout');
+            this.clients.delete(client.id);
+            if (this.notificationService) {
+              this.notificationService.removeClient(client.id);
+            }
+            return;
+          }
+          
+          // Enviar ping para mantener conexión viva
           client.socket.ping();
         } else {
           // Cliente desconectado, removerlo
+          console.log(`🧹 Limpiando cliente desconectado: ${client.id}`);
           this.clients.delete(client.id);
           if (this.notificationService) {
             this.notificationService.removeClient(client.id);
           }
         }
       });
-    }, 30000); // Ping cada 30 segundos
+    }, parseInt(process.env.WS_PING_INTERVAL || '30000')); // Ping cada 30 segundos por defecto
   }
 }
 

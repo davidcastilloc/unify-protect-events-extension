@@ -24,8 +24,8 @@ class UnifiProtectExtension {
     // Iniciar heartbeat para mantener conexión
     this.startHeartbeat();
     
-    // Conectar al servidor
-    this.connectToServer();
+    // No conectar automáticamente - solo cuando el usuario lo solicite
+    console.log('📋 Extensión inicializada. Usa el popup para conectar al servidor.');
   }
 
   generateClientId() {
@@ -132,11 +132,18 @@ class UnifiProtectExtension {
     try {
       console.log('🔗 Conectando al servidor...');
       
-      // Obtener token de autenticación
-      await this.getAuthToken();
+      // Verificar si el servidor está disponible antes de obtener token
+      if (!await this.isServerAvailable()) {
+        throw new Error('El servidor no está disponible');
+      }
       
+      // Obtener token de autenticación solo si es necesario
       if (!this.token) {
-        throw new Error('No se pudo obtener token de autenticación');
+        await this.getAuthToken();
+        
+        if (!this.token) {
+          throw new Error('No se pudo obtener token de autenticación');
+        }
       }
 
       // Conectar WebSocket
@@ -148,8 +155,30 @@ class UnifiProtectExtension {
     }
   }
 
+  async isServerAvailable() {
+    try {
+      console.log('🔍 Verificando disponibilidad del servidor...');
+      
+      // Hacer una petición simple para verificar si el servidor responde
+      const response = await fetch(`${this.serverUrl}/health`, {
+        method: 'GET',
+        timeout: 5000 // 5 segundos de timeout
+      });
+      
+      const isAvailable = response.ok;
+      console.log(isAvailable ? '✅ Servidor disponible' : '❌ Servidor no disponible');
+      return isAvailable;
+      
+    } catch (error) {
+      console.log('❌ Servidor no disponible:', error.message);
+      return false;
+    }
+  }
+
   async getAuthToken() {
     try {
+      console.log('🔑 Obteniendo token de autenticación...');
+      
       const response = await fetch(`${this.serverUrl}/auth/token`, {
         method: 'POST',
         headers: {
@@ -180,7 +209,17 @@ class UnifiProtectExtension {
         
         this.ws = new WebSocket(wsUrl);
         
+        // Configurar timeout de conexión
+        const connectionTimeout = setTimeout(() => {
+          if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+            console.log('⏰ Timeout de conexión WebSocket');
+            this.ws.close();
+            reject(new Error('Timeout de conexión WebSocket'));
+          }
+        }, 10000); // 10 segundos de timeout
+        
         this.ws.onopen = () => {
+          clearTimeout(connectionTimeout);
           console.log('✅ WebSocket conectado');
           this.isConnected = true;
           this.reconnectAttempts = 0;
@@ -197,6 +236,7 @@ class UnifiProtectExtension {
         };
 
         this.ws.onclose = (event) => {
+          clearTimeout(connectionTimeout);
           console.log('🔌 WebSocket desconectado:', event.code, event.reason);
           this.isConnected = false;
           this.updateBadge('OFF', '#F44336');
@@ -208,6 +248,7 @@ class UnifiProtectExtension {
         };
 
         this.ws.onerror = (error) => {
+          clearTimeout(connectionTimeout);
           console.error('❌ Error en WebSocket:', error);
           reject(error);
         };
@@ -443,14 +484,35 @@ class UnifiProtectExtension {
   }
 
   scheduleReconnect() {
+    // No reconectar si ya se alcanzó el límite máximo
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('❌ Máximo de intentos de reconexión alcanzado');
+      this.updateBadge('FAIL', '#FF5722');
+      return;
+    }
+    
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    
+    // Backoff exponencial con límite máximo
+    const delay = Math.min(
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+      30000 // Máximo 30 segundos
+    );
     
     console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
     
-    setTimeout(() => {
-      if (this.reconnectAttempts <= this.maxReconnectAttempts) {
-        this.connectToServer();
+    setTimeout(async () => {
+      // Verificar disponibilidad del servidor antes de reconectar
+      if (await this.isServerAvailable()) {
+        try {
+          await this.connectToServer();
+        } catch (error) {
+          console.error('❌ Error en reconexión:', error);
+          this.scheduleReconnect();
+        }
+      } else {
+        console.log('⏳ Servidor no disponible, esperando antes del siguiente intento...');
+        this.scheduleReconnect();
       }
     }, delay);
   }
@@ -458,6 +520,11 @@ class UnifiProtectExtension {
   handleConnectionError(error) {
     console.error('❌ Error de conexión:', error);
     this.updateBadge('ERR', '#FF9800');
+    
+    // Limpiar token si hay errores de autenticación
+    if (error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403')) {
+      this.clearToken();
+    }
     
     // Mostrar notificación de error
     chrome.notifications.create('connection-error', {
@@ -481,8 +548,14 @@ class UnifiProtectExtension {
     }
     
     this.isConnected = false;
+    this.clearToken(); // Limpiar token al desconectar
     this.updateBadge('OFF', '#F44336');
     console.log('🔌 Desconectado del servidor');
+  }
+
+  clearToken() {
+    this.token = null;
+    console.log('🗑️ Token limpiado');
   }
 
   showWelcomeNotification() {
@@ -523,7 +596,7 @@ class UnifiProtectExtension {
       chrome.tabs.query({ active: true }, (tabs) => {
         tabs.forEach(tab => {
           chrome.tabs.sendMessage(tab.id, {
-            type: 'showPopup',
+            type: 'showModal',
             event: event
           }).catch(error => {
             // Ignorar errores si no hay content script en la pestaña
@@ -532,7 +605,7 @@ class UnifiProtectExtension {
         });
       });
       
-      console.log('📤 Evento enviado a content scripts:', event.id);
+      console.log('📤 Evento enviado a content scripts para mostrar modal:', event.id);
       
     } catch (error) {
       console.error('❌ Error enviando evento a content script:', error);

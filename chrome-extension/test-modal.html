@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Modal UniFi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #5a6fd8;
+        }
+        .event-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+        .event-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .event-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔔 Prueba de Modal UniFi Protect</h1>
+        
+        <p>Esta página simula eventos del websocket para probar que el modal se muestra correctamente cuando llegan eventos.</p>
+        
+        <div class="event-info">
+            <h3>Instrucciones:</h3>
+            <p>1. Asegúrate de que la extensión esté instalada y activa</p>
+            <p>2. Haz clic en los botones de abajo para simular diferentes tipos de eventos</p>
+            <p>3. El modal debería aparecer automáticamente en la página</p>
+        </div>
+        
+        <h3>Simular Eventos:</h3>
+        <button class="test-button" onclick="simulateEvent('motion', 'low')">
+            🏃 Movimiento (Baja Severidad)
+        </button>
+        <button class="test-button" onclick="simulateEvent('person', 'medium')">
+            👤 Persona (Media Severidad)
+        </button>
+        <button class="test-button" onclick="simulateEvent('vehicle', 'high')">
+            🚗 Vehículo (Alta Severidad)
+        </button>
+        <button class="test-button" onclick="simulateEvent('doorbell', 'critical')">
+            🔔 Timbre (Crítica Severidad)
+        </button>
+        <button class="test-button" onclick="simulateEvent('package', 'medium')">
+            📦 Paquete (Media Severidad)
+        </button>
+        
+        <div class="event-info">
+            <h3>Notas:</h3>
+            <p>• Los modales se auto-cierran después de 15 segundos (excepto eventos críticos)</p>
+            <p>• Los eventos críticos permanecen abiertos hasta cerrarlos manualmente</p>
+            <p>• No se mostrarán modales duplicados para el mismo evento</p>
+        </div>
+    </div>
+
+    <script>
+        function simulateEvent(type, severity) {
+            const event = {
+                id: `test-${type}-${Date.now()}`,
+                type: type,
+                severity: severity,
+                timestamp: new Date().toISOString(),
+                description: `Evento de prueba: ${getEventDescription(type)}`,
+                camera: {
+                    id: `camera-${Math.floor(Math.random() * 1000)}`,
+                    name: `Cámara de Prueba ${Math.floor(Math.random() * 10) + 1}`,
+                    model: 'G4 Pro'
+                }
+            };
+
+            // Simular el mensaje que enviaría el background script
+            const message = {
+                type: 'showModal',
+                event: event
+            };
+
+            // Enviar mensaje al content script (si está disponible)
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage(message).catch(error => {
+                    console.log('No se pudo enviar mensaje:', error);
+                    // Si no hay extensión, mostrar el modal directamente
+                    showModalDirectly(event);
+                });
+            } else {
+                // Si no hay extensión, mostrar el modal directamente
+                showModalDirectly(event);
+            }
+        }
+
+        function getEventDescription(type) {
+            const descriptions = {
+                'motion': 'Se detectó movimiento en el área vigilada',
+                'person': 'Se detectó una persona en la cámara',
+                'vehicle': 'Se detectó un vehículo en el área',
+                'doorbell': 'El timbre fue presionado',
+                'package': 'Se detectó un paquete en la entrada',
+                'sensor': 'El sensor fue activado',
+                'smart_detect': 'Detección inteligente activada'
+            };
+            return descriptions[type] || 'Evento de prueba';
+        }
+
+        function showModalDirectly(event) {
+            // Crear modal directamente si no hay extensión
+            const modal = document.createElement('div');
+            modal.id = `unifi-modal-${event.id}`;
+            modal.className = 'unifi-event-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 2147483648;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                ">
+                    <div style="
+                        background: white;
+                        border-radius: 12px;
+                        max-width: 600px;
+                        width: 100%;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                        transform: scale(0.9);
+                        transition: transform 0.3s ease;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    ">
+                        <div style="
+                            padding: 20px;
+                            border-bottom: 1px solid #eee;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        ">
+                            <h2 style="margin: 0; color: #333; font-size: 20px; font-weight: 600;">
+                                🔔 Evento UniFi Detectado
+                            </h2>
+                            <button onclick="this.closest('.unifi-event-modal').remove()" style="
+                                background: none;
+                                border: none;
+                                font-size: 24px;
+                                color: #999;
+                                cursor: pointer;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">×</button>
+                        </div>
+                        <div style="padding: 20px;">
+                            <div style="margin-bottom: 20px;">
+                                <h3 style="margin: 0 0 12px 0; color: #333; font-size: 16px; font-weight: 600; border-bottom: 2px solid #667eea; padding-bottom: 4px;">
+                                    Información del Evento
+                                </h3>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Tipo:</span>
+                                    <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${getEventTypeLabel(event.type)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Severidad:</span>
+                                    <span style="color: ${getSeverityColor(event.severity)}; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${getSeverityLabel(event.severity)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Descripción:</span>
+                                    <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${event.description}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Cámara:</span>
+                                    <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${event.camera.name}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Hora:</span>
+                                    <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${new Date(event.timestamp).toLocaleString('es-ES')}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end;">
+                            <button onclick="this.closest('.unifi-event-modal').remove()" style="
+                                padding: 10px 20px;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                background: #667eea;
+                                color: white;
+                            ">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Animar entrada
+            setTimeout(() => {
+                modal.style.opacity = '1';
+                modal.querySelector('div > div').style.transform = 'scale(1)';
+            }, 10);
+
+            // Auto-cerrar después de 15 segundos (excepto eventos críticos)
+            if (event.severity !== 'critical') {
+                setTimeout(() => {
+                    const modalToClose = document.querySelector(`#unifi-modal-${event.id}`);
+                    if (modalToClose) {
+                        modalToClose.style.opacity = '0';
+                        setTimeout(() => {
+                            if (modalToClose.parentNode) {
+                                modalToClose.remove();
+                            }
+                        }, 300);
+                    }
+                }, 15000);
+            }
+        }
+
+        function getEventTypeLabel(eventType) {
+            const labels = {
+                'motion': 'Movimiento',
+                'person': 'Persona',
+                'vehicle': 'Vehículo',
+                'package': 'Paquete',
+                'doorbell': 'Timbre',
+                'smart_detect': 'Smart Detect',
+                'sensor': 'Sensor'
+            };
+            return labels[eventType] || eventType;
+        }
+
+        function getSeverityLabel(severity) {
+            const labels = {
+                'low': 'Baja',
+                'medium': 'Media',
+                'high': 'Alta',
+                'critical': 'Crítica'
+            };
+            return labels[severity] || severity;
+        }
+
+        function getSeverityColor(severity) {
+            const colors = {
+                'low': '#4CAF50',
+                'medium': '#FF9800',
+                'high': '#F44336',
+                'critical': '#9C27B0'
+            };
+            return colors[severity] || '#333';
+        }
+    </script>
+</body>
+</html>

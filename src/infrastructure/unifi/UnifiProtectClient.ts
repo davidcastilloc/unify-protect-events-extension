@@ -380,13 +380,24 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       const wsOptions: any = {
         headers: {
           'X-API-KEY': this.apiKey
-        }
+        },
+        // Configuraciones de timeout y estabilidad desde variables de entorno
+        handshakeTimeout: parseInt(process.env.UNIFI_WS_HANDSHAKE_TIMEOUT || '15000'),
+        perMessageDeflate: false // Deshabilitar compresión para mejor rendimiento
       };
       
-  
       this.wsClient = new WebSocket(wsUrl, wsOptions);
 
+      // Configurar timeout para la conexión
+      const connectionTimeout = setTimeout(() => {
+        if (this.wsClient && this.wsClient.readyState === WebSocket.CONNECTING) {
+          console.log('⏰ Timeout conectando a UniFi Protect WebSocket');
+          this.wsClient.close();
+        }
+      }, parseInt(process.env.UNIFI_WS_HANDSHAKE_TIMEOUT || '15000'));
+
       this.wsClient.on('open', () => {
+        clearTimeout(connectionTimeout);
         console.log('✅ WebSocket conectado exitosamente');
         console.log('🔔 Esperando eventos de UniFi Protect...');
         console.log('💡 Para generar eventos, puedes:');
@@ -398,7 +409,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       this.wsClient.on('message', (data: WebSocket.Data) => {
         try {
           const message = JSON.parse(data.toString());
-          
+          console.log('🔍 Mensaje WebSocket recibido:', message);
           // Verificar si es un mensaje de error
           if (message.error) {
             const errorMessage: UnifiProtectErrorMessage = message;
@@ -415,18 +426,26 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       });
 
       this.wsClient.on('error', (error) => {
+        clearTimeout(connectionTimeout);
         console.error('❌ Error en WebSocket:', error);
         console.error('❌ Detalles del error:', error.message);
       });
 
-      this.wsClient.on('close', () => {
-        console.log('🔌 WebSocket desconectado');
-        // Reconectar después de 5 segundos
-        setTimeout(() => {
-          if (this.isConnected) {
-            this.connectWebSocket();
-          }
-        }, 5000);
+      this.wsClient.on('close', (code: number, reason: string) => {
+        clearTimeout(connectionTimeout);
+        console.log(`🔌 WebSocket desconectado - Código: ${code}, Razón: ${reason}`);
+        
+        // Solo reconectar si no fue un cierre intencional y estamos conectados
+        if (code !== 1000 && this.isConnected) {
+          console.log('🔄 Reconectando en 10 segundos...');
+          setTimeout(() => {
+            if (this.isConnected) {
+              this.connectWebSocket();
+            }
+          }, parseInt(process.env.UNIFI_WS_RECONNECT_DELAY || '10000'));
+        } else if (code === 1000) {
+          console.log('✅ Cierre intencional del WebSocket');
+        }
       });
 
     } catch (error) {
@@ -435,6 +454,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   }
 
   private handleWebSocketMessage(message: UnifiProtectUpdateMessage): void {
+    console.log('🔍 Mensaje WebSocket recibido:', message);
     if (!this.eventCallback) return;
 
     console.log(`📡 Mensaje WebSocket recibido: ${message.type}`);

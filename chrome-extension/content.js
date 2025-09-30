@@ -19,6 +19,9 @@ class UnifiContentScript {
       case 'showPopup':
         this.createFloatingPopup(message.event);
         break;
+      case 'showModal':
+        this.showEventDetails(message.event);
+        break;
       case 'removePopup':
         this.removePopup(message.eventId);
         break;
@@ -149,8 +152,15 @@ class UnifiContentScript {
   }
 
   showEventDetails(event) {
+    // Verificar si ya existe un modal para este evento
+    const existingModal = document.querySelector(`#unifi-modal-${event.id}`);
+    if (existingModal) {
+      return; // No mostrar modal duplicado
+    }
+
     // Crear un modal con detalles completos del evento
     const modal = document.createElement('div');
+    modal.id = `unifi-modal-${event.id}`;
     modal.className = 'unifi-event-modal';
     modal.innerHTML = `
       <div class="modal-overlay">
@@ -244,6 +254,21 @@ class UnifiContentScript {
     setTimeout(() => {
       modal.classList.add('modal-visible');
     }, 10);
+
+    // Auto-cerrar el modal después de 15 segundos (excepto para eventos críticos)
+    if (event.severity !== 'critical') {
+      setTimeout(() => {
+        const modalToClose = document.querySelector(`#unifi-modal-${event.id}`);
+        if (modalToClose) {
+          modalToClose.classList.remove('modal-visible');
+          setTimeout(() => {
+            if (modalToClose.parentNode) {
+              modalToClose.remove();
+            }
+          }, 300);
+        }
+      }, 15000);
+    }
   }
 
   ensurePopupStyles() {
