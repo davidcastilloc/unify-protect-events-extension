@@ -323,9 +323,13 @@ class UnifiProtectExtension {
       const message = JSON.parse(event.data);
       console.log('📨 Mensaje recibido:', message);
 
+      // Lista de tipos de eventos válidos de UniFi
+      const validEventTypes = ['motion', 'person', 'vehicle', 'package', 'doorbell', 'smart_detect', 'sensor'];
+
       switch (message.type) {
         case 'connected':
-          console.log('✅ Conectado al servidor:', message.clientId);
+          console.log('✅ Conectado al servidor');
+          // No procesar 'connected' como evento, solo logging
           break;
 
         case 'event':
@@ -333,16 +337,20 @@ class UnifiProtectExtension {
           break;
 
         case 'pong':
-          this.handleUnifiEvent({
-            id: message.clientId,
-            type: 'connected',
-            timestamp: new Date().toISOString(),
-            camera: {
-              id: message.clientId,
-              name: 'Server'
-            }
-          });
           console.log('🏓 Pong recibido');
+          // No procesar 'pong' como evento, solo logging
+          break;
+
+        case 'motion':
+        case 'person':
+        case 'vehicle':
+        case 'package':
+        case 'doorbell':
+        case 'smart_detect':
+        case 'sensor':
+          // Eventos en formato simple que vienen directamente del backend
+          console.log('📦 Evento en formato simple recibido:', message.type);
+          this.handleUnifiEvent(message);
           break;
 
         default:
@@ -379,22 +387,45 @@ class UnifiProtectExtension {
       ? event.timestamp 
       : new Date(event.timestamp);
     
-    // Estructura completa según UnifiEvent de UnifiProtectClient.ts
-    return {
-      id: event.id,
-      type: event.type, // Ya viene como string: 'motion', 'person', 'vehicle', 'package', 'doorbell', 'smart_detect', 'sensor'
-      severity: event.severity, // Ya viene como string: 'low', 'medium', 'high', 'critical'
-      timestamp: timestamp,
-      camera: {
-        id: event.camera.id,
-        name: event.camera.name,
-        type: event.camera.type,
-        location: event.camera.location
-      },
-      description: event.description,
-      thumbnailUrl: event.thumbnailUrl,
-      metadata: event.metadata || {}
-    };
+    // Verificar si es un evento en formato simple (nuevo formato)
+    // En formato simple, los campos adicionales están en metadata
+    const isSimpleFormat = !event.id && event.metadata;
+    
+    if (isSimpleFormat) {
+      // Formato simple: extraer datos de metadata
+      return {
+        id: event.metadata.id || `event-${Date.now()}`,
+        type: event.type,
+        severity: event.metadata.severity || 'medium',
+        timestamp: timestamp,
+        camera: {
+          id: event.metadata.cameraId || 'unknown',
+          name: event.camera.name,
+          type: event.metadata.cameraType || 'unknown',
+          location: event.metadata.cameraLocation
+        },
+        description: event.metadata.description || `Evento ${event.type} detectado`,
+        thumbnailUrl: event.metadata.thumbnailUrl,
+        metadata: event.metadata || {}
+      };
+    } else {
+      // Formato completo (legacy o eventos viejos)
+      return {
+        id: event.id || `event-${Date.now()}`,
+        type: event.type,
+        severity: event.severity || 'medium',
+        timestamp: timestamp,
+        camera: {
+          id: event.camera.id || 'unknown',
+          name: event.camera.name,
+          type: event.camera.type || 'unknown',
+          location: event.camera.location
+        },
+        description: event.description || `Evento ${event.type} detectado`,
+        thumbnailUrl: event.thumbnailUrl,
+        metadata: event.metadata || {}
+      };
+    }
   }
 
   shouldShowNotification(event) {

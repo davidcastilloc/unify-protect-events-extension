@@ -76,8 +76,11 @@ export class WebSocketServer {
         // Enviar mensaje de bienvenida
         ws.send(JSON.stringify({
           type: 'connected',
-          clientId: clientId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          camera: {
+            name: 'Server'
+          },
+          metadata: {}
         }));
 
         // Limpiar timeout de conexión ya que se estableció correctamente
@@ -156,7 +159,11 @@ export class WebSocketServer {
         client.lastSeen = new Date();
         client.socket.send(JSON.stringify({
           type: 'pong',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          camera: {
+            name: 'Server'
+          },
+          metadata: {}
         }));
         break;
       

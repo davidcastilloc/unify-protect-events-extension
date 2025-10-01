@@ -29,15 +29,13 @@ export class SimulationController {
     // Escuchar eventos generados por el simulador
     this.simulator.on('eventGenerated', (event: SimulationEvent) => {
       if (this.isConnected && this.notificationService) {
-        // Convertir evento de simulación a UnifiEvent
-        const unifiEvent: UnifiEvent = {
-          id: event.id,
+        // Convertir evento de simulación a formato simple
+        const simpleEvent = {
           type: event.type,
-          severity: event.severity,
-          timestamp: event.timestamp,
-          camera: event.camera,
-          description: event.description,
-          thumbnailUrl: event.thumbnailUrl,
+          timestamp: event.timestamp.toISOString(),
+          camera: {
+            name: event.camera.name
+          },
           metadata: {
             ...event.metadata,
             simulation: true // Marcar como evento simulado
@@ -45,7 +43,7 @@ export class SimulationController {
         };
 
         // Enviar evento a través del servicio de notificaciones
-        this.notificationService.broadcastEvent(unifiEvent);
+        (this.notificationService as any).broadcastSimpleEvent(simpleEvent);
         console.log(`📡 Evento simulado enviado a clientes: ${event.type} desde ${event.camera.name}`);
       } else {
         console.warn('⚠️ No hay servicio de notificaciones conectado para enviar evento simulado');

@@ -18,22 +18,51 @@ export class NotificationService implements INotificationService {
   }
 
   broadcastEvent(event: UnifiEvent): void {
-    const payload: NotificationPayload = {
-      event,
-      clientId: 'broadcast'
-    };
-
     console.log(`📡 Transmitiendo evento ${event.id} (${event.type}) a ${this.clients.size} clientes conectados`);
+
+    // Convertir UnifiEvent al formato simple
+    const simpleEvent = {
+      type: event.type,
+      timestamp: event.timestamp instanceof Date ? event.timestamp.toISOString() : event.timestamp,
+      camera: {
+        name: event.camera.name
+      },
+      metadata: {
+        ...event.metadata,
+        id: event.id,
+        severity: event.severity,
+        description: event.description,
+        thumbnailUrl: event.thumbnailUrl,
+        cameraId: event.camera.id,
+        cameraType: event.camera.type,
+        cameraLocation: event.camera.location
+      }
+    };
 
     let notifiedClients = 0;
     this.clients.forEach((client) => {
       if (this.shouldNotifyClient(client, event)) {
-        this.sendNotificationToClient(client, payload);
+        this.sendSimpleEventToClient(client, simpleEvent);
         notifiedClients++;
       }
     });
     
     console.log(`📤 Evento enviado a ${notifiedClients} de ${this.clients.size} clientes`);
+  }
+
+  broadcastSimpleEvent(event: any): void {
+    console.log(`📡 Transmitiendo evento simple (${event.type}) a ${this.clients.size} clientes conectados`);
+
+    let notifiedClients = 0;
+    this.clients.forEach((client) => {
+      // Para eventos simples del simulador, enviamos directamente sin filtros complejos
+      if (client.filters.enabled) {
+        this.sendSimpleEventToClient(client, event);
+        notifiedClients++;
+      }
+    });
+    
+    console.log(`📤 Evento simple enviado a ${notifiedClients} de ${this.clients.size} clientes`);
   }
 
   private shouldNotifyClient(client: NotificationClient, event: UnifiEvent): boolean {
@@ -84,6 +113,23 @@ export class NotificationService implements INotificationService {
       }
     } catch (error) {
       console.error(`Error enviando notificación a cliente ${client.id}:`, error);
+      this.removeClient(client.id);
+    }
+  }
+
+  private sendSimpleEventToClient(client: NotificationClient, event: any): void {
+    try {
+      const message = JSON.stringify(event);
+
+      if (client.socket.readyState === 1) { // WebSocket.OPEN
+        client.socket.send(message);
+        console.log(`Evento simple enviado a cliente ${client.id}`);
+      } else {
+        console.warn(`Cliente ${client.id} no está conectado, removiendo...`);
+        this.removeClient(client.id);
+      }
+    } catch (error) {
+      console.error(`Error enviando evento simple a cliente ${client.id}:`, error);
       this.removeClient(client.id);
     }
   }
