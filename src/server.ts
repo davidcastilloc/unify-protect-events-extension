@@ -3,10 +3,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { createServer } from 'http';
 import dotenv from 'dotenv';
+import path from 'path';
 import { WebSocketServer } from './infrastructure/websocket/WebSocketServer';
 import { UnifiProtectClient } from './infrastructure/unifi/UnifiProtectClient';
 import { NotificationService } from './application/NotificationService';
 import { UnifiEvent } from './domain/events/UnifiEvent';
+import { SimulationRoutes } from './simulation/SimulationRoutes';
 import winston from 'winston';
 
 // Cargar variables de entorno
@@ -36,26 +38,47 @@ class UnifiNotificationServer {
   private wsServer!: WebSocketServer;
   private unifiClient!: UnifiProtectClient;
   private notificationService!: NotificationService;
+  private simulationRoutes!: SimulationRoutes;
 
   constructor() {
     this.app = express();
     this.setupMiddleware();
-    this.setupRoutes();
     
     this.server = createServer(this.app);
-    this.setupNotificationService(); // Mover antes del WebSocketServer
+    this.setupNotificationService(); // Primero el servicio de notificaciones
+    this.setupSimulation(); // Luego la simulación (necesita notificationService)
+    this.setupRoutes(); // Después las rutas (necesita simulationRoutes)
     this.setupWebSocketServer();
     this.setupUnifiClient();
   }
 
   private setupMiddleware(): void {
-    this.app.use(helmet());
+    // Configurar Helmet con CSP más permisivo para simulación
+    this.app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'", "ws:", "wss:"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+        },
+      },
+    }));
+    
     this.app.use(cors({
       origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
       credentials: true
     }));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+    
+    // Servir archivos estáticos para la interfaz de simulación
+    this.app.use('/simulation', express.static(path.join(__dirname, 'simulation/public')));
   }
 
   private setupRoutes(): void {
@@ -99,6 +122,14 @@ class UnifiNotificationServer {
       });
     });
 
+    // Rutas de simulación
+    this.app.use('/api/simulation', this.simulationRoutes.getRouter());
+
+    // Ruta para la interfaz web de simulación
+    this.app.get('/simulation', (req, res) => {
+      res.sendFile(path.join(__dirname, 'simulation/public/simulation.html'));
+    });
+
   }
 
   private setupWebSocketServer(): void {
@@ -133,6 +164,15 @@ class UnifiNotificationServer {
     logger.info('Servicio de notificaciones configurado');
   }
 
+  private setupSimulation(): void {
+    this.simulationRoutes = new SimulationRoutes();
+    
+    // Conectar el controlador de simulación con el servicio de notificaciones
+    this.simulationRoutes.getSimulationController().setNotificationService(this.notificationService);
+    
+    logger.info('Módulo de simulación configurado y conectado');
+  }
+
   private async startUnifiConnection(): Promise<void> {
     try {
       await this.unifiClient.connect();
@@ -160,6 +200,7 @@ class UnifiNotificationServer {
         logger.info(`Servidor iniciado en puerto ${port}`);
         logger.info(`Health check: http://localhost:${port}/health`);
         logger.info(`WebSocket: ws://localhost:${port}/ws`);
+        logger.info(`Interfaz de simulación: http://localhost:${port}/simulation`);
       });
 
       // Conectar con UniFi Protect
@@ -173,6 +214,9 @@ class UnifiNotificationServer {
 
   public async stop(): Promise<void> {
     logger.info('Deteniendo servidor...');
+    
+    // Desconectar simulación
+    this.simulationRoutes.getSimulationController().disconnect();
     
     this.unifiClient.disconnect();
     this.server.close(() => {

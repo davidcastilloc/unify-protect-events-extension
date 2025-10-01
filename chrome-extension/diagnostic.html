@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico de Conectividad UniFi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .test-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-result {
+            margin: 10px 0;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 2px solid transparent;
+        }
+
+        .test-result.pending {
+            border-color: #e0e0e0;
+            color: #666;
+        }
+
+        .test-result.success {
+            border-color: #4CAF50;
+            background: #f1f8f4;
+        }
+
+        .test-result.error {
+            border-color: #F44336;
+            background: #fef1f0;
+        }
+
+        .test-result.warning {
+            border-color: #FF9800;
+            background: #fff8f0;
+        }
+
+        .status-icon {
+            font-size: 20px;
+            min-width: 24px;
+        }
+
+        .test-details {
+            flex: 1;
+        }
+
+        .test-label {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .test-info {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+
+        button.primary:hover {
+            background: #5a6fd8;
+        }
+
+        button.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        button.secondary:hover {
+            background: #d0d0d0;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .log-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #1e1e1e;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 8px;
+            margin: 4px 0;
+            border-radius: 4px;
+        }
+
+        .log-entry.info {
+            color: #4CAF50;
+        }
+
+        .log-entry.error {
+            color: #F44336;
+        }
+
+        .log-entry.warning {
+            color: #FF9800;
+        }
+
+        .log-entry.debug {
+            color: #2196F3;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Diagnóstico de Conectividad</h1>
+            <p>Herramienta para verificar la conexión entre la extensión y el servidor WebSocket</p>
+        </div>
+
+        <div class="content">
+            <!-- Prueba 1: Servidor HTTP -->
+            <div class="test-section">
+                <h2>🌐 Prueba 1: Servidor HTTP</h2>
+                <div id="httpTest" class="test-result pending">
+                    <span class="status-icon">⏳</span>
+                    <div class="test-details">
+                        <div class="test-label">Conectando al servidor...</div>
+                        <div class="test-info">Verificando disponibilidad del servidor HTTP</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prueba 2: Obtener Token -->
+            <div class="test-section">
+                <h2>🔑 Prueba 2: Autenticación</h2>
+                <div id="tokenTest" class="test-result pending">
+                    <span class="status-icon">⏳</span>
+                    <div class="test-details">
+                        <div class="test-label">Esperando prueba de servidor...</div>
+                        <div class="test-info">Generando token de autenticación</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prueba 3: Conexión WebSocket -->
+            <div class="test-section">
+                <h2>🔌 Prueba 3: Conexión WebSocket</h2>
+                <div id="wsTest" class="test-result pending">
+                    <span class="status-icon">⏳</span>
+                    <div class="test-details">
+                        <div class="test-label">Esperando token...</div>
+                        <div class="test-info">Estableciendo conexión WebSocket</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prueba 4: Recepción de Mensajes -->
+            <div class="test-section">
+                <h2>📨 Prueba 4: Recepción de Mensajes</h2>
+                <div id="messageTest" class="test-result pending">
+                    <span class="status-icon">⏳</span>
+                    <div class="test-details">
+                        <div class="test-label">Esperando conexión WebSocket...</div>
+                        <div class="test-info">Esperando mensaje de bienvenida del servidor</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prueba 5: Evento de Simulación -->
+            <div class="test-section">
+                <h2>🎭 Prueba 5: Evento de Simulación</h2>
+                <div id="simulationTest" class="test-result pending">
+                    <span class="status-icon">⏳</span>
+                    <div class="test-details">
+                        <div class="test-label">Esperando conexión...</div>
+                        <div class="test-info">Generando evento de prueba</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estadísticas -->
+            <div class="test-section">
+                <h2>📊 Estadísticas</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="clientsCount">-</div>
+                        <div class="stat-label">Clientes Conectados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="eventsReceived">0</div>
+                        <div class="stat-label">Eventos Recibidos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="latency">-</div>
+                        <div class="stat-label">Latencia (ms)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="button-group">
+                <button class="primary" id="runTestBtn" onclick="runFullDiagnostic()">
+                    🔄 Ejecutar Diagnóstico
+                </button>
+                <button class="secondary" id="generateEventBtn" onclick="generateTestEvent()" disabled>
+                    🎯 Generar Evento de Prueba
+                </button>
+                <button class="secondary" onclick="clearLogs()">
+                    🗑️ Limpiar Logs
+                </button>
+            </div>
+
+            <!-- Logs -->
+            <div class="log-section" id="logSection"></div>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:3001';
+        let ws = null;
+        let token = null;
+        let clientId = 'diagnostic-' + Math.random().toString(36).substr(2, 9);
+        let eventsReceived = 0;
+
+        function log(message, type = 'info') {
+            const logSection = document.getElementById('logSection');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logSection.appendChild(entry);
+            logSection.scrollTop = logSection.scrollHeight;
+        }
+
+        function updateTestResult(testId, status, label, info) {
+            const element = document.getElementById(testId);
+            element.className = `test-result ${status}`;
+            
+            const icons = {
+                pending: '⏳',
+                success: '✅',
+                error: '❌',
+                warning: '⚠️'
+            };
+            
+            element.innerHTML = `
+                <span class="status-icon">${icons[status]}</span>
+                <div class="test-details">
+                    <div class="test-label">${label}</div>
+                    <div class="test-info">${info}</div>
+                </div>
+            `;
+        }
+
+        async function runFullDiagnostic() {
+            log('🚀 Iniciando diagnóstico completo...', 'info');
+            
+            document.getElementById('runTestBtn').disabled = true;
+            eventsReceived = 0;
+            document.getElementById('eventsReceived').textContent = '0';
+
+            // Prueba 1: Servidor HTTP
+            const httpSuccess = await testHttpServer();
+            
+            if (!httpSuccess) {
+                log('❌ Diagnóstico detenido: servidor no disponible', 'error');
+                document.getElementById('runTestBtn').disabled = false;
+                return;
+            }
+
+            // Prueba 2: Token
+            const tokenSuccess = await testAuthentication();
+            
+            if (!tokenSuccess) {
+                log('❌ Diagnóstico detenido: no se pudo obtener token', 'error');
+                document.getElementById('runTestBtn').disabled = false;
+                return;
+            }
+
+            // Prueba 3: WebSocket
+            const wsSuccess = await testWebSocketConnection();
+            
+            if (!wsSuccess) {
+                log('❌ Diagnóstico detenido: no se pudo establecer conexión WebSocket', 'error');
+                document.getElementById('runTestBtn').disabled = false;
+                return;
+            }
+
+            // Esperar mensaje de bienvenida
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            log('✅ Diagnóstico completo exitoso', 'info');
+            document.getElementById('runTestBtn').disabled = false;
+            document.getElementById('generateEventBtn').disabled = false;
+        }
+
+        async function testHttpServer() {
+            log('Probando conexión HTTP al servidor...', 'debug');
+            updateTestResult('httpTest', 'pending', 'Conectando...', 'Verificando ' + SERVER_URL);
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${SERVER_URL}/health`);
+                const latency = Date.now() - startTime;
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                updateTestResult('httpTest', 'success', 
+                    'Servidor HTTP disponible ✓', 
+                    `Status: ${data.status} | Clientes: ${data.clients} | Latencia: ${latency}ms`
+                );
+                
+                document.getElementById('clientsCount').textContent = data.clients;
+                document.getElementById('latency').textContent = latency;
+                
+                log(`✅ Servidor HTTP disponible (${latency}ms)`, 'info');
+                return true;
+                
+            } catch (error) {
+                updateTestResult('httpTest', 'error', 
+                    'Error de conexión', 
+                    error.message
+                );
+                log(`❌ Error conectando al servidor: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testAuthentication() {
+            log('Obteniendo token de autenticación...', 'debug');
+            updateTestResult('tokenTest', 'pending', 'Generando token...', `Cliente ID: ${clientId}`);
+
+            try {
+                const response = await fetch(`${SERVER_URL}/auth/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ clientId: clientId })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                token = data.token;
+                
+                updateTestResult('tokenTest', 'success', 
+                    'Token obtenido ✓', 
+                    `Token: ${token.substring(0, 20)}...`
+                );
+                
+                log('✅ Token de autenticación obtenido', 'info');
+                return true;
+                
+            } catch (error) {
+                updateTestResult('tokenTest', 'error', 
+                    'Error obteniendo token', 
+                    error.message
+                );
+                log(`❌ Error obteniendo token: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testWebSocketConnection() {
+            return new Promise((resolve) => {
+                log('Conectando WebSocket...', 'debug');
+                updateTestResult('wsTest', 'pending', 'Conectando...', `ws://localhost:3001/ws`);
+
+                const wsUrl = `ws://localhost:3001/ws?token=${token}`;
+                ws = new WebSocket(wsUrl);
+
+                const timeout = setTimeout(() => {
+                    if (ws && ws.readyState !== WebSocket.OPEN) {
+                        updateTestResult('wsTest', 'error', 
+                            'Timeout de conexión', 
+                            'No se pudo conectar en 10 segundos'
+                        );
+                        log('❌ Timeout de conexión WebSocket', 'error');
+                        resolve(false);
+                    }
+                }, 10000);
+
+                ws.onopen = () => {
+                    clearTimeout(timeout);
+                    updateTestResult('wsTest', 'success', 
+                        'WebSocket conectado ✓', 
+                        'Conexión establecida correctamente'
+                    );
+                    log('✅ WebSocket conectado', 'info');
+                    resolve(true);
+                };
+
+                ws.onmessage = (event) => {
+                    handleWebSocketMessage(event);
+                };
+
+                ws.onerror = (error) => {
+                    clearTimeout(timeout);
+                    updateTestResult('wsTest', 'error', 
+                        'Error en WebSocket', 
+                        'Error de conexión'
+                    );
+                    log(`❌ Error en WebSocket: ${error}`, 'error');
+                    resolve(false);
+                };
+
+                ws.onclose = (event) => {
+                    log(`🔌 WebSocket cerrado: ${event.code} - ${event.reason}`, 'warning');
+                    document.getElementById('generateEventBtn').disabled = true;
+                };
+            });
+        }
+
+        function handleWebSocketMessage(event) {
+            try {
+                const message = JSON.parse(event.data);
+                log(`📨 Mensaje recibido: ${message.type}`, 'debug');
+
+                if (message.type === 'connected') {
+                    updateTestResult('messageTest', 'success', 
+                        'Mensaje de bienvenida recibido ✓', 
+                        `Cliente ID: ${message.clientId}`
+                    );
+                    log('✅ Mensaje de bienvenida recibido', 'info');
+                } else if (message.type === 'event') {
+                    eventsReceived++;
+                    document.getElementById('eventsReceived').textContent = eventsReceived;
+                    
+                    updateTestResult('simulationTest', 'success', 
+                        'Evento recibido ✓', 
+                        `Tipo: ${message.data.type} | Cámara: ${message.data.camera.name}`
+                    );
+                    
+                    log(`🎯 Evento recibido: ${message.data.type} desde ${message.data.camera.name}`, 'info');
+                } else if (message.type === 'pong') {
+                    log('🏓 Pong recibido', 'debug');
+                }
+            } catch (error) {
+                log(`❌ Error procesando mensaje: ${error.message}`, 'error');
+            }
+        }
+
+        async function generateTestEvent() {
+            log('Generando evento de prueba...', 'debug');
+            updateTestResult('simulationTest', 'pending', 
+                'Generando evento...', 
+                'Solicitando evento de simulación al servidor'
+            );
+
+            try {
+                const response = await fetch(`${SERVER_URL}/api/simulation/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ eventType: 'person' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                log('✅ Evento de prueba generado', 'info');
+                
+            } catch (error) {
+                updateTestResult('simulationTest', 'error', 
+                    'Error generando evento', 
+                    error.message
+                );
+                log(`❌ Error generando evento: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logSection').innerHTML = '';
+            log('Logs limpiados', 'info');
+        }
+
+        // Inicializar
+        log('🔍 Herramienta de diagnóstico cargada', 'info');
+        log('Presiona "Ejecutar Diagnóstico" para comenzar', 'info');
+    </script>
+</body>
+</html>
+
