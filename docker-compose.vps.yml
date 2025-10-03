@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  unifi-protect-notifications:
+    image: ghcr.io/davidcastilloc/unify-protect-events-extension:latest
+    container_name: unifi-protect-notifications
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - LOG_LEVEL=info
+      - UNIFI_HOST=${UNIFI_HOST}
+      - UNIFI_PORT=${UNIFI_PORT}
+      - UNIFI_API_KEY=${UNIFI_API_KEY}
+      - UNIFI_SSL_VERIFY=${UNIFI_SSL_VERIFY}
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - unifi-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis para caching (opcional)
+  redis:
+    image: redis:7-alpine
+    container_name: unifi-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - unifi-network
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  unifi-network:
+    driver: bridge
+
+volumes:
+  redis-data:
