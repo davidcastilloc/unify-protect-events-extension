@@ -3,6 +3,10 @@ import axios from 'axios';
 import WebSocket from 'ws';
 import https from 'https';
 
+// ----------------------------------------------------------------------
+// --- INTERFACES DEL CLIENTE ---
+// ----------------------------------------------------------------------
+
 export interface UnifiProtectConfig {
   host: string;
   port?: number;
@@ -18,7 +22,10 @@ export interface IUnifiProtectClient {
   unsubscribeFromEvents(): void;
 }
 
-// Interfaces basadas en la documentación oficial de UniFi Protect API
+// ----------------------------------------------------------------------
+// --- INTERFACES DE LA API DE UNIFI PROTECT ---
+// ----------------------------------------------------------------------
+
 interface UnifiProtectCamera {
   id: string;
   modelKey: string;
@@ -60,11 +67,11 @@ interface UnifiProtectCamera {
   };
 }
 
-// Tipos de eventos específicos según la documentación
-interface RingEvent {
+// Interfaz base para permitir flexibilidad en los tipos de eventos
+interface BaseEvent {
   id: string;
   modelKey: string;
-  type: 'ring';
+  type: string;
   start: number;
   end: number;
   device: string;
@@ -72,157 +79,81 @@ interface RingEvent {
   thumbnail?: string;
 }
 
-interface SensorExtremeValueEvent {
-  id: string;
-  modelKey: string;
+interface RingEvent extends BaseEvent {
+  type: 'ring';
+}
+
+interface SensorExtremeValueEvent extends BaseEvent {
   type: 'sensorExtremeValue';
-  start: number;
-  end: number;
-  device: string;
   value: number;
   unit: string;
 }
 
-interface SensorWaterLeakEvent {
-  id: string;
-  modelKey: string;
+interface SensorWaterLeakEvent extends BaseEvent {
   type: 'sensorWaterLeak';
-  start: number;
-  end: number;
-  device: string;
   isInternal: boolean;
   isExternal: boolean;
 }
 
-interface SensorTamperEvent {
-  id: string;
-  modelKey: string;
+interface SensorTamperEvent extends BaseEvent {
   type: 'sensorTamper';
-  start: number;
-  end: number;
-  device: string;
 }
 
-interface SensorBatteryLowEvent {
-  id: string;
-  modelKey: string;
+interface SensorBatteryLowEvent extends BaseEvent {
   type: 'sensorBatteryLow';
-  start: number;
-  end: number;
-  device: string;
   batteryLevel: number;
 }
 
-interface SensorAlarmEvent {
-  id: string;
-  modelKey: string;
+interface SensorAlarmEvent extends BaseEvent {
   type: 'sensorAlarm';
-  start: number;
-  end: number;
-  device: string;
   alarmType: string;
 }
 
-interface SensorOpenEvent {
-  id: string;
-  modelKey: string;
+interface SensorOpenEvent extends BaseEvent {
   type: 'sensorOpen';
-  start: number;
-  end: number;
-  device: string;
 }
 
-interface SensorClosedEvent {
-  id: string;
-  modelKey: string;
+interface SensorClosedEvent extends BaseEvent {
   type: 'sensorClosed';
-  start: number;
-  end: number;
-  device: string;
 }
 
-interface SensorMotionEvent {
-  id: string;
-  modelKey: string;
+interface SensorMotionEvent extends BaseEvent {
   type: 'sensorMotion';
-  start: number;
-  end: number;
-  device: string;
   sensitivity: number;
 }
 
-interface LightMotionEvent {
-  id: string;
-  modelKey: string;
+interface LightMotionEvent extends BaseEvent {
   type: 'lightMotion';
-  start: number;
-  end: number;
-  device: string;
   lightLevel: number;
 }
 
-interface CameraMotionEvent {
-  id: string;
-  modelKey: string;
+interface CameraMotionEvent extends BaseEvent {
   type: 'cameraMotion';
-  start: number;
-  end: number;
-  device: string;
-  score: number;
-  thumbnail?: string;
   zones?: string[];
 }
 
-interface CameraSmartDetectAudioEvent {
-  id: string;
-  modelKey: string;
+interface CameraSmartDetectAudioEvent extends BaseEvent {
   type: 'cameraSmartDetectAudio';
-  start: number;
-  end: number;
-  device: string;
-  score: number;
   audioType: string;
-  thumbnail?: string;
 }
 
-interface CameraSmartDetectZoneEvent {
-  id: string;
-  modelKey: string;
-  type: 'cameraSmartDetectZone';
-  start: number;
-  end: number;
-  device: string;
-  score: number;
+interface CameraSmartDetectZoneEvent extends BaseEvent {
+  type: 'cameraSmartDetectZone' | 'smartDetectZone'; 
   zone: string;
-  thumbnail?: string;
 }
 
-interface CameraSmartDetectLineEvent {
-  id: string;
-  modelKey: string;
+interface CameraSmartDetectLineEvent extends BaseEvent {
   type: 'cameraSmartDetectLine';
-  start: number;
-  end: number;
-  device: string;
-  score: number;
   line: string;
   direction: string;
-  thumbnail?: string;
 }
 
-interface CameraSmartDetectLoiterEvent {
-  id: string;
-  modelKey: string;
+interface CameraSmartDetectLoiterEvent extends BaseEvent {
   type: 'cameraSmartDetectLoiter';
-  start: number;
-  end: number;
-  device: string;
-  score: number;
   duration: number;
-  thumbnail?: string;
 }
 
-// Union type para todos los eventos
+// Union type para todos los eventos, incluyendo el tipo BaseEvent como fallback.
 type UnifiProtectEvent = 
   | RingEvent
   | SensorExtremeValueEvent
@@ -238,29 +169,17 @@ type UnifiProtectEvent =
   | CameraSmartDetectAudioEvent
   | CameraSmartDetectZoneEvent
   | CameraSmartDetectLineEvent
-  | CameraSmartDetectLoiterEvent;
+  | CameraSmartDetectLoiterEvent
+  | BaseEvent; 
 
 interface UnifiProtectUpdateMessage {
   type: 'add' | 'update';
   item: UnifiProtectEvent | UnifiProtectCamera;
 }
 
-interface UnifiProtectErrorMessage {
-  error: string;
-  name: string;
-  cause?: any;
-}
-
-interface UnifiProtectBootstrap {
-  cameras: UnifiProtectCamera[];
-  events: UnifiProtectEvent[];
-  nvr: {
-    id: string;
-    modelKey: string;
-    name: string;
-    doorbellSettings: any;
-  };
-}
+// ----------------------------------------------------------------------
+// --- CLASE PRINCIPAL DEL CLIENTE DE UNIFI PROTECT ---
+// ----------------------------------------------------------------------
 
 export class UnifiProtectClient implements IUnifiProtectClient {
   private config: UnifiProtectConfig;
@@ -270,12 +189,14 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   private wsClient?: WebSocket;
   private apiKey: string;
   private baseUrl: string;
+  private cameraCache: Record<string, UnifiProtectCamera> = {};
 
   constructor(config: UnifiProtectConfig) {
     this.config = config;
     this.apiKey = config.apiKey;
     this.baseUrl = `https://${config.host}`;
     
+    // Configuración de Axios
     this.httpClient = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
@@ -301,13 +222,17 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     );
   }
 
+  // ----------------------------------------------------------------------
+  // --- MÉTODOS DE CONEXIÓN ---
+  // ----------------------------------------------------------------------
+
   async connect(): Promise<void> {
     try {
       console.log(`🔗 Conectando a UniFi Protect en ${this.config.host}:${this.config.port || 443}`);
       console.log(`🔑 API Key: ${this.apiKey.substring(0, 8)}...`);
       
       console.log('🚀 Conectando con UniFi Protect...');
-        await this.connectReal();
+      await this.connectReal();
       
       this.isConnected = true;
       
@@ -321,14 +246,14 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     try {
       console.log('🔗 Iniciando conexión con UniFi Protect...');
       
-      // Verificar que la API key funciona
       await this.validateApiKey();
       
-      // Obtener información de la aplicación
       const appInfo = await this.getApplicationInfo();
       console.log(`📊 Versión de aplicación: ${appInfo.applicationVersion}`);
       
-      // Conectar WebSocket para eventos en tiempo real
+      // Llenar el cache de cámaras para obtener nombres reales
+      await this.loadCameraCache(); 
+      
       await this.connectWebSocket();
       
       console.log('✅ Conexión establecida con UniFi Protect');
@@ -342,17 +267,13 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   private async validateApiKey(): Promise<void> {
     try {
       console.log('🔐 Validando API Key...');
-      
-      // Probar la API key con el cliente HTTP configurado
       const response = await this.httpClient.get('/proxy/protect/integration/v1/liveviews');
       
       if (response.status === 200) {
         console.log('✅ API Key válida');
-        console.log(`📊 Respuesta: ${JSON.stringify(response.data).substring(0, 100)}...`);
       } else {
         throw new Error(`API Key inválida: ${response.status}`);
       }
-      
     } catch (error: any) {
       console.error('❌ Error validando API Key:', error);
       throw new Error('API Key inválida o expirada');
@@ -361,7 +282,6 @@ export class UnifiProtectClient implements IUnifiProtectClient {
 
   private async getApplicationInfo(): Promise<{ applicationVersion: string }> {
     try {
-      // Usar el endpoint correcto para obtener información del NVR
       const response = await this.httpClient.get('/proxy/protect/integration/v1/nvrs');
       return { applicationVersion: response.data.version || 'unknown' };
     } catch (error) {
@@ -370,25 +290,37 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     }
   }
 
+  private async loadCameraCache(): Promise<void> {
+      try {
+          const response = await this.httpClient.get('/proxy/protect/integration/v1/cameras');
+          const cameras: UnifiProtectCamera[] = response.data;
+          
+          this.cameraCache = cameras.reduce((acc, camera) => {
+              acc[camera.id] = camera;
+              return acc;
+          }, {} as Record<string, UnifiProtectCamera>);
+          
+          console.log(`📹 Cache de cámaras cargado: ${cameras.length} dispositivos.`);
+      } catch (error) {
+          console.error('❌ Error cargando cache de cámaras:', error);
+      }
+  }
+
   private async connectWebSocket(): Promise<void> {
     try {
-      // Usar el endpoint correcto para eventos de UniFi Protect
       const wsUrl = `wss://${this.config.host}/proxy/protect/integration/v1/subscribe/events`;
       console.log(`🔌 Conectando WebSocket: ${wsUrl}`);
       
-      // Configurar opciones WebSocket con SSL y autenticación
       const wsOptions: any = {
         headers: {
           'X-API-KEY': this.apiKey
         },
-        // Configuraciones de timeout y estabilidad desde variables de entorno
         handshakeTimeout: parseInt(process.env.UNIFI_WS_HANDSHAKE_TIMEOUT || '15000'),
-        perMessageDeflate: false // Deshabilitar compresión para mejor rendimiento
+        perMessageDeflate: false
       };
       
       this.wsClient = new WebSocket(wsUrl, wsOptions);
 
-      // Configurar timeout para la conexión
       const connectionTimeout = setTimeout(() => {
         if (this.wsClient && this.wsClient.readyState === WebSocket.CONNECTING) {
           console.log('⏰ Timeout conectando a UniFi Protect WebSocket');
@@ -400,24 +332,11 @@ export class UnifiProtectClient implements IUnifiProtectClient {
         clearTimeout(connectionTimeout);
         console.log('✅ WebSocket conectado exitosamente');
         console.log('🔔 Esperando eventos de UniFi Protect...');
-        console.log('💡 Para generar eventos, puedes:');
-        console.log('   - Moverte frente a una cámara');
-        console.log('   - Presionar el timbre');
-        console.log('   - Activar sensores de movimiento');
       });
 
       this.wsClient.on('message', (data: WebSocket.Data) => {
         try {
           const message = JSON.parse(data.toString());
-          console.log('🔍 Mensaje WebSocket recibido:', message);
-          // Verificar si es un mensaje de error
-          if (message.error) {
-            const errorMessage: UnifiProtectErrorMessage = message;
-            console.error('❌ Error WebSocket:', errorMessage.error, errorMessage.name);
-            return;
-          }
-          
-          // Procesar mensaje de actualización
           const updateMessage: UnifiProtectUpdateMessage = message;
           this.handleWebSocketMessage(updateMessage);
         } catch (error) {
@@ -428,14 +347,12 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       this.wsClient.on('error', (error) => {
         clearTimeout(connectionTimeout);
         console.error('❌ Error en WebSocket:', error);
-        console.error('❌ Detalles del error:', error.message);
       });
 
       this.wsClient.on('close', (code: number, reason: string) => {
         clearTimeout(connectionTimeout);
         console.log(`🔌 WebSocket desconectado - Código: ${code}, Razón: ${reason}`);
         
-        // Solo reconectar si no fue un cierre intencional y estamos conectados
         if (code !== 1000 && this.isConnected) {
           console.log('🔄 Reconectando en 10 segundos...');
           setTimeout(() => {
@@ -443,8 +360,6 @@ export class UnifiProtectClient implements IUnifiProtectClient {
               this.connectWebSocket();
             }
           }, parseInt(process.env.UNIFI_WS_RECONNECT_DELAY || '10000'));
-        } else if (code === 1000) {
-          console.log('✅ Cierre intencional del WebSocket');
         }
       });
 
@@ -453,18 +368,15 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     }
   }
 
+  // ----------------------------------------------------------------------
+  // --- MANEJO Y PROCESAMIENTO DE EVENTOS ---
+  // ----------------------------------------------------------------------
+
   private handleWebSocketMessage(message: UnifiProtectUpdateMessage): void {
-    console.log('🔍 Mensaje WebSocket recibido:', message);
     if (!this.eventCallback) return;
 
-    console.log(`📡 Mensaje WebSocket recibido: ${message.type}`);
-    console.log('📊 Datos completos del mensaje:', JSON.stringify(message, null, 2));
-
-    // Corregido: solo debe cumplirse si el tipo es 'add' o 'update'
     if (message.type === 'add' || message.type === 'update') {
       const event = message.item as UnifiProtectEvent;
-      console.log('🎯 Evento detectado:', event.type);
-      console.log('📋 Detalles del evento:', JSON.stringify(event, null, 2));
       this.processUnifiEvent(event);
     } else {
       console.log('ℹ️ Mensaje no es un evento - tipo:', message.type, 'modelKey:', message.item?.modelKey);
@@ -474,11 +386,12 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   private processUnifiEvent(event: UnifiProtectEvent): void {
     if (!this.eventCallback) return;
 
-    console.log('🔄 Procesando evento UniFi Protect...');
-    console.log('📝 Tipo original:', event.type);
-    console.log('🆔 ID del evento:', event.id);
-    console.log('📅 Timestamp:', event.start);
-
+        // AÑADE ESTA LÍNEA AQUÍ PARA VER EL EVENTO CRUDO
+    console.log('--- EVENTO UNIFI DETALLE ---');
+    console.log(`TYPE: ${event.type}`);
+    console.log(`JSON: ${JSON.stringify(event, null, 2)}`);
+    console.log('----------------------------');
+    
     const unifiEvent: UnifiEvent = {
       id: event.id,
       type: this.mapUnifiEventType(event.type),
@@ -494,23 +407,17 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       thumbnailUrl: this.getEventThumbnail(event),
       metadata: this.getEventMetadata(event)
     };
-
-    console.log('✅ Evento procesado exitosamente:');
-    console.log('🎯 Tipo mapeado:', unifiEvent.type);
-    console.log('⚠️ Severidad:', unifiEvent.severity);
-    console.log('📷 Cámara:', unifiEvent.camera.name);
-    console.log('📝 Descripción:', unifiEvent.description);
-    console.log('📊 Metadatos:', JSON.stringify(unifiEvent.metadata, null, 2));
     
     this.eventCallback(unifiEvent);
   }
 
+  // ----------------------------------------------------------------------
+  // --- MÉTODOS DE MAPPING Y DETALLE DE EVENTOS ---
+  // ----------------------------------------------------------------------
+
   private mapUnifiEventType(unifiType: string): EventType {
     const typeMap: { [key: string]: EventType } = {
-      // Eventos de timbre
       'ring': EventType.DOORBELL,
-      
-      // Eventos de sensores
       'sensorExtremeValue': EventType.SENSOR,
       'sensorWaterLeak': EventType.SENSOR,
       'sensorTamper': EventType.SENSOR,
@@ -519,18 +426,13 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       'sensorOpen': EventType.SENSOR,
       'sensorClosed': EventType.SENSOR,
       'sensorMotion': EventType.MOTION,
-      
-      // Eventos de luces
       'lightMotion': EventType.MOTION,
-      
-      // Eventos de cámaras
       'cameraMotion': EventType.MOTION,
       'cameraSmartDetectAudio': EventType.SMART_DETECT,
       'cameraSmartDetectZone': EventType.SMART_DETECT,
+      'smartDetectZone': EventType.SMART_DETECT,
       'cameraSmartDetectLine': EventType.SMART_DETECT,
       'cameraSmartDetectLoiter': EventType.SMART_DETECT,
-      
-      // Tipos legacy (por compatibilidad)
       'motion': EventType.MOTION,
       'person': EventType.PERSON,
       'vehicle': EventType.VEHICLE,
@@ -550,77 +452,118 @@ export class UnifiProtectClient implements IUnifiProtectClient {
 
   private getEventScore(event: UnifiProtectEvent): number {
     if ('score' in event && typeof event.score === 'number') return event.score;
-    if ('value' in event && typeof event.value === 'number') return event.value;
-    if ('batteryLevel' in event && typeof event.batteryLevel === 'number') return event.batteryLevel;
-    if ('sensitivity' in event && typeof event.sensitivity === 'number') return event.sensitivity;
-    if ('lightLevel' in event && typeof event.lightLevel === 'number') return event.lightLevel;
-    if ('duration' in event && typeof event.duration === 'number') return event.duration;
-    return 50; // Score por defecto
+    if ('duration' in event && typeof event.duration === 'number') return event.duration * 10 > 50 ? 80 : 50;
+    return 50;
   }
 
   private getDeviceName(event: UnifiProtectEvent): string {
-    const deviceTypeMap: { [key: string]: string } = {
-      'ring': 'Timbre UniFi',
-      'sensorExtremeValue': 'Sensor UniFi',
-      'sensorWaterLeak': 'Sensor de Agua UniFi',
-      'sensorTamper': 'Sensor Anti-manipulación UniFi',
-      'sensorBatteryLow': 'Sensor UniFi (Batería Baja)',
-      'sensorAlarm': 'Sensor de Alarma UniFi',
-      'sensorOpen': 'Sensor de Apertura UniFi',
-      'sensorClosed': 'Sensor de Cierre UniFi',
-      'sensorMotion': 'Sensor de Movimiento UniFi',
-      'lightMotion': 'Luz UniFi',
-      'cameraMotion': 'Cámara UniFi',
-      'cameraSmartDetectAudio': 'Cámara UniFi (Audio)',
-      'cameraSmartDetectZone': 'Cámara UniFi (Zona)',
-      'cameraSmartDetectLine': 'Cámara UniFi (Línea)',
-      'cameraSmartDetectLoiter': 'Cámara UniFi (Merodeo)'
-    };
-    return deviceTypeMap[event.type] || 'Dispositivo UniFi';
+      const camera = this.cameraCache[event.device];
+      if (camera && camera.name) {
+          return camera.name;
+      }
+      
+      const deviceTypeMap: { [key: string]: string } = {
+          'ring': 'Timbre UniFi',
+          'sensorExtremeValue': 'Sensor UniFi',
+          'sensorWaterLeak': 'Sensor de Agua UniFi',
+          'sensorTamper': 'Sensor Anti-manipulación UniFi',
+          'sensorBatteryLow': 'Sensor UniFi (Batería Baja)',
+          'sensorAlarm': 'Sensor de Alarma UniFi',
+          'sensorOpen': 'Sensor de Apertura UniFi',
+          'sensorClosed': 'Sensor de Cierre UniFi',
+          'sensorMotion': 'Sensor de Movimiento UniFi',
+          'lightMotion': 'Luz UniFi',
+          'cameraMotion': 'Cámara UniFi (Movimiento)',
+          'cameraSmartDetectAudio': 'Cámara - Audio Inteligente',
+          'cameraSmartDetectZone': 'Cámara - Detección por Zona',
+          'smartDetectZone': 'Cámara - Detección por Zona',
+          'cameraSmartDetectLine': 'Cámara - Cruce de Línea',
+          'cameraSmartDetectLoiter': 'Cámara - Merodeo',
+      };
+      return deviceTypeMap[event.type] || 'Dispositivo UniFi';
   }
 
   private getDeviceType(event: UnifiProtectEvent): string {
     const deviceTypeMap: { [key: string]: string } = {
       'ring': 'UniFi Doorbell',
       'sensorExtremeValue': 'UniFi Sensor',
-      'sensorWaterLeak': 'UniFi Water Sensor',
-      'sensorTamper': 'UniFi Tamper Sensor',
-      'sensorBatteryLow': 'UniFi Sensor',
-      'sensorAlarm': 'UniFi Alarm Sensor',
-      'sensorOpen': 'UniFi Contact Sensor',
-      'sensorClosed': 'UniFi Contact Sensor',
-      'sensorMotion': 'UniFi Motion Sensor',
-      'lightMotion': 'UniFi Light',
-      'cameraMotion': 'UniFi Camera',
-      'cameraSmartDetectAudio': 'UniFi Camera',
       'cameraSmartDetectZone': 'UniFi Camera',
-      'cameraSmartDetectLine': 'UniFi Camera',
-      'cameraSmartDetectLoiter': 'UniFi Camera'
     };
     return deviceTypeMap[event.type] || 'UniFi Device';
   }
 
+  // Lógica de descripción enriquecida (CORREGIDA)
   private getEventDescription(event: UnifiProtectEvent): string {
-    const descriptions: { [key: string]: string } = {
-      'ring': 'Timbre presionado',
-      'sensorExtremeValue': `Valor extremo detectado: ${'value' in event ? event.value : 'N/A'} ${'unit' in event ? event.unit : ''}`,
-      'sensorWaterLeak': 'Fuga de agua detectada',
-      'sensorTamper': 'Manipulación del sensor detectada',
-      'sensorBatteryLow': `Batería baja: ${'batteryLevel' in event ? event.batteryLevel : 'N/A'}%`,
-      'sensorAlarm': `Alarma activada: ${'alarmType' in event ? event.alarmType : 'N/A'}`,
-      'sensorOpen': 'Sensor abierto',
-      'sensorClosed': 'Sensor cerrado',
-      'sensorMotion': 'Movimiento detectado por sensor',
-      'lightMotion': 'Movimiento detectado por luz',
-      'cameraMotion': 'Movimiento detectado por cámara',
-      'cameraSmartDetectAudio': `Audio detectado: ${'audioType' in event ? event.audioType : 'N/A'}`,
-      'cameraSmartDetectZone': `Zona detectada: ${'zone' in event ? event.zone : 'N/A'}`,
-      'cameraSmartDetectLine': `Línea cruzada: ${'line' in event ? event.line : 'N/A'} (${'direction' in event ? event.direction : 'N/A'})`,
-      'cameraSmartDetectLoiter': `Merodeo detectado: ${'duration' in event ? event.duration : 'N/A'}s`
-    };
-    return descriptions[event.type] || `Evento detectado: ${event.type}`;
-  }
+      let description = '';
+      
+      const baseEvent = event as BaseEvent;
+      
+      switch (baseEvent.type) {
+          case 'ring':
+              description = '🔔 ¡Timbre presionado!';
+              break;
 
+          case 'cameraMotion':
+              const motionEvent = event as CameraMotionEvent;
+              const motionScore = motionEvent.score ?? 'N/A';
+              description = `Movimiento detectado por la cámara. Confianza: ${motionScore}%.`;
+              break;
+              
+          case 'cameraSmartDetectZone':
+          case 'smartDetectZone': 
+          case 'cameraSmartDetectLine':
+          case 'cameraSmartDetectLoiter':
+              const smartBaseEvent = event as BaseEvent;
+              const score = smartBaseEvent.score ?? 'N/A';
+              let detail = '';
+
+              if (baseEvent.type === 'cameraSmartDetectZone' || baseEvent.type === 'smartDetectZone') {
+                  const zoneEvent = event as CameraSmartDetectZoneEvent;
+                  detail = `en la Zona: ${zoneEvent.zone ?? 'Desconocida'}.`;
+              } else if (baseEvent.type === 'cameraSmartDetectLine') {
+                  const lineEvent = event as CameraSmartDetectLineEvent;
+                  detail = `Línea cruzada: ${lineEvent.line ?? 'N/A'}. Dirección: ${lineEvent.direction ?? 'N/A'}.`;
+              } else if (baseEvent.type === 'cameraSmartDetectLoiter') {
+                  const loiterEvent = event as CameraSmartDetectLoiterEvent;
+                  detail = `(Merodeo detectado por ${loiterEvent.duration ?? 'N/A'} segundos).`;
+              } else {
+                  detail = 'detectado.';
+              }
+              
+              description = `🚨 Detección Inteligente ${detail} Confianza: ${score}%.`;
+              break;
+
+          case 'cameraSmartDetectAudio':
+              const audioEvent = event as CameraSmartDetectAudioEvent;
+              description = `🔊 Audio detectado: ${audioEvent.audioType ?? 'Desconocido'}. Confianza: ${audioEvent.score ?? 'N/A'}%.`;
+              break;
+              
+          case 'sensorWaterLeak':
+              description = '💧 ¡ALERTA! Fuga de agua detectada.';
+              break;
+              
+          case 'sensorBatteryLow':
+              const batteryEvent = event as SensorBatteryLowEvent;
+              description = `🔋 Batería baja. Nivel: ${batteryEvent.batteryLevel ?? 'N/A'}%.`;
+              break;
+
+          default:
+              const defaultDescriptions: { [key: string]: string } = {
+                  'sensorExtremeValue': `Valor extremo detectado: ${'value' in event ? (event as SensorExtremeValueEvent).value : 'N/A'}`,
+                  'sensorTamper': 'Manipulación del sensor detectada',
+                  'sensorAlarm': `Alarma activada: ${'alarmType' in event ? (event as SensorAlarmEvent).alarmType : 'N/A'}`,
+                  'sensorOpen': 'Sensor abierto',
+                  'sensorClosed': 'Sensor cerrado',
+                  'sensorMotion': 'Movimiento detectado por sensor',
+                  'lightMotion': 'Movimiento detectado por luz'
+              };
+              description = defaultDescriptions[baseEvent.type] || `Evento desconocido: ${baseEvent.type}`;
+              break;
+      }
+      
+      return description;
+  }
+  
   private getEventThumbnail(event: UnifiProtectEvent): string | undefined {
     if ('thumbnail' in event) return event.thumbnail;
     return undefined;
@@ -632,25 +575,14 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       eventType: event.type
     };
 
-    // Agregar metadatos específicos según el tipo de evento
-    if ('score' in event) metadata.score = event.score;
-    if ('value' in event) metadata.value = event.value;
-    if ('unit' in event) metadata.unit = event.unit;
-    if ('isInternal' in event) metadata.isInternal = event.isInternal;
-    if ('isExternal' in event) metadata.isExternal = event.isExternal;
-    if ('batteryLevel' in event) metadata.batteryLevel = event.batteryLevel;
-    if ('alarmType' in event) metadata.alarmType = event.alarmType;
-    if ('sensitivity' in event) metadata.sensitivity = event.sensitivity;
-    if ('lightLevel' in event) metadata.lightLevel = event.lightLevel;
-    if ('zones' in event) metadata.zones = event.zones;
-    if ('audioType' in event) metadata.audioType = event.audioType;
-    if ('zone' in event) metadata.zone = event.zone;
-    if ('line' in event) metadata.line = event.line;
-    if ('direction' in event) metadata.direction = event.direction;
-    if ('duration' in event) metadata.duration = event.duration;
+    if ('duration' in event) metadata.duration = (event as CameraSmartDetectLoiterEvent).duration;
 
     return metadata;
   }
+
+  // ----------------------------------------------------------------------
+  // --- MÉTODOS PÚBLICOS ---
+  // ----------------------------------------------------------------------
 
   disconnect(): void {
     this.isConnected = false;
@@ -670,18 +602,14 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     }
 
     try {
-      console.log('📹 Obteniendo cámaras de UniFi Protect...');
-      
       const response = await this.httpClient.get('/proxy/protect/integration/v1/cameras');
       const cameras: UnifiProtectCamera[] = response.data;
-      
-      console.log(`📹 Obtenidas ${cameras.length} cámaras de UniFi Protect`);
       
       return cameras.map((camera): CameraInfo => ({
         id: camera.id,
         name: camera.name || `Cámara ${camera.id}`,
         type: camera.modelKey || 'Unknown',
-        location: undefined // La API no proporciona ubicación directamente
+        location: undefined
       }));
       
     } catch (error) {
@@ -697,13 +625,6 @@ export class UnifiProtectClient implements IUnifiProtectClient {
 
     this.eventCallback = callback;
     console.log('🔔 Suscrito a eventos de UniFi Protect');
-
-    // Los eventos se manejan automáticamente via WebSocket
-    if (this.wsClient && this.wsClient.readyState === WebSocket.OPEN) {
-      console.log('🔔 Escuchando eventos via WebSocket...');
-    } else {
-      console.log('⚠️ WebSocket no conectado, eventos no disponibles');
-    }
   }
 
   unsubscribeFromEvents(): void {
@@ -711,7 +632,9 @@ export class UnifiProtectClient implements IUnifiProtectClient {
     console.log('Desuscrito de eventos de UniFi Protect');
   }
 
-  // Métodos adicionales basados en la documentación oficial
+  // ----------------------------------------------------------------------
+  // --- MÉTODOS ADICIONALES (SNAPSHOTS, STREAMS, ETC.) ---
+  // ----------------------------------------------------------------------
   
   async getCameraDetails(cameraId: string): Promise<UnifiProtectCamera | null> {
     try {
@@ -732,28 +655,6 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       return Buffer.from(response.data);
     } catch (error) {
       console.error(`❌ Error obteniendo snapshot de cámara ${cameraId}:`, error);
-      return null;
-    }
-  }
-
-  async createRTSPSStream(cameraId: string, qualities: string[]): Promise<{ [key: string]: string } | null> {
-    try {
-      const response = await this.httpClient.post(`/proxy/protect/integration/v1/cameras/${cameraId}/streams`, {
-        qualities
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Error creando stream RTSPS para cámara ${cameraId}:`, error);
-      return null;
-    }
-  }
-
-  async getNVRDetails(): Promise<any> {
-    try {
-      const response = await this.httpClient.get('/proxy/protect/integration/v1/nvr');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error obteniendo detalles del NVR:', error);
       return null;
     }
   }
