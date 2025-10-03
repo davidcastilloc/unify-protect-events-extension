@@ -1,0 +1,29 @@
+name: "UniFi Protect Notifications CodeQL Config"
+
+# This configuration file specifies the queries to run for CodeQL analysis
+# and configures the analysis behavior.
+
+# Queries to run for JavaScript/TypeScript
+queries:
+  # Use the default security and quality queries
+  - uses: security-and-quality
+
+# Paths to exclude from analysis
+paths-ignore:
+  - "node_modules"
+  - "dist"
+  - "coverage"
+  - "chrome-extension"
+  - "*.min.js"
+  - "*.bundle.js"
+
+# Paths to include in analysis
+paths:
+  - "src"
+
+# Disable specific queries that might cause issues
+disable-default-queries: false
+
+# Custom query packs
+packs:
+  - javascript-security-and-quality

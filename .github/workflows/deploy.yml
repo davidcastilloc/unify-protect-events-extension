@@ -21,6 +21,10 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}

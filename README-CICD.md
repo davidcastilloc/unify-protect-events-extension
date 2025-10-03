@@ -195,6 +195,24 @@ FROM base AS production
 3. **Comprobar dependencias** actualizadas
 4. **Revisar tests** locales
 
+### ❌ **CodeQL Error: "Resource not accessible by integration"**
+
+Este error ocurre cuando el token de GitHub no tiene permisos suficientes. **Soluciones:**
+
+1. **Verificar permisos del repositorio:**
+   - Ve a Settings → Actions → General
+   - Asegúrate de que "Workflow permissions" esté configurado correctamente
+
+2. **Usar el workflow simplificado:**
+   - Renombra `security.yml` a `security-backup.yml`
+   - Renombra `security-simple.yml` a `security.yml`
+   - Este workflow evita CodeQL y usa solo npm audit + OWASP
+
+3. **Configurar permisos manualmente:**
+   - Ve a Settings → Actions → General
+   - Selecciona "Read and write permissions"
+   - Marca "Allow GitHub Actions to create and approve pull requests"
+
 ### ❌ **Deployment Falla**
 
 1. **Verificar configuración** de environment

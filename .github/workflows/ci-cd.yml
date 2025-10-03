@@ -33,6 +33,12 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  packages: write
+
 env:
   NODE_VERSION: '18'
   REGISTRY: ghcr.io
