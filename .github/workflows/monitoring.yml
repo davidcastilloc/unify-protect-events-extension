@@ -41,14 +41,11 @@ jobs:
 
       - name: 📧 Send Alert if Unhealthy
         if: steps.staging-health.outputs.staging == 'unhealthy' || steps.production-health.outputs.production == 'unhealthy'
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          channel: '#alerts'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo "🚨 ALERT: One or more environments are unhealthy!"
+          echo "Staging: ${{ steps.staging-health.outputs.staging }}"
+          echo "Production: ${{ steps.production-health.outputs.production }}"
+          echo "Please check the environments immediately!"
 
       - name: 📊 Health Check Summary
         run: |

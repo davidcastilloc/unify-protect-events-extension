@@ -42,12 +42,11 @@ jobs:
       - name: 🔍 CodeQL Analysis
         uses: github/codeql-action/analyze@v2
 
-      - name: 🛡️ Snyk Security Scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
+      - name: 🛡️ NPM Security Audit
+        run: |
+          echo "Running npm security audit..."
+          npm audit --audit-level=high
+          echo "Security audit completed ✅"
 
       - name: 🔒 OWASP Dependency Check
         uses: dependency-check/Dependency-Check_Action@main
@@ -67,5 +66,5 @@ jobs:
           echo "| Tool | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| CodeQL | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Snyk | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| NPM Audit | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| OWASP | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY

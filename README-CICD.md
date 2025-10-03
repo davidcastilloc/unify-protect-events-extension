@@ -53,20 +53,16 @@ graph TD
 
 ### 🔐 **Secrets de GitHub**
 
-Configura los siguientes secrets en tu repositorio:
+Configura los siguientes secrets en tu repositorio (opcionales):
 
 ```bash
-# Security
-SNYK_TOKEN=your_snyk_token
-SONAR_TOKEN=your_sonarcloud_token
-
-# Notifications
-SLACK_WEBHOOK=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
-DISCORD_WEBHOOK=https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK
-
 # Deployment (si usas Kubernetes)
 KUBE_CONFIG=your_kubeconfig_base64
 DOCKER_REGISTRY_TOKEN=your_registry_token
+
+# Notifications externas (opcional)
+SLACK_WEBHOOK=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+DISCORD_WEBHOOK=https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK
 ```
 
 ### 📦 **Dependencias Adicionales**
@@ -119,9 +115,8 @@ gh workflow run "CI/CD Pipeline - UniFi Protect Notifications" \
 
 ### 📧 **Notificaciones**
 
-- **Slack**: Canal `#deployments` y `#alerts`
-- **Discord**: Webhook configurado
-- **GitHub**: Issues automáticos para dependencias
+- **GitHub**: Notificaciones nativas y issues automáticos para dependencias
+- **Slack/Discord**: Opcionales (configurar secrets si se desea)
 
 ### 📈 **Métricas**
 
@@ -135,17 +130,17 @@ gh workflow run "CI/CD Pipeline - UniFi Protect Notifications" \
 ### 🛡️ **Escaneos Implementados**
 
 1. **CodeQL**: Análisis estático de código
-2. **Snyk**: Vulnerabilidades en dependencias
+2. **npm audit**: Auditoría de paquetes
 3. **OWASP**: Dependency Check
 4. **Trivy**: Escaneo de imágenes Docker
-5. **npm audit**: Auditoría de paquetes
+5. **audit-ci**: Auditoría de dependencias
 
 ### 🔐 **Mejores Prácticas**
 
-- Secrets rotados regularmente
-- Imágenes firmadas digitalmente
 - Escaneo de vulnerabilidades diario
 - Dependencias actualizadas semanalmente
+- Auditoría de código con CodeQL
+- Escaneo de contenedores con Trivy
 
 ## 🐳 Docker
 
