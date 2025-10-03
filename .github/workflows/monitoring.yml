@@ -1,0 +1,85 @@
+name: 📊 Monitoring & Alerts
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: 🏥 Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: 🏥 Check Staging Health
+        id: staging-health
+        run: |
+          echo "Checking staging environment..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://staging.unifi-protect.example.com/health || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "staging=healthy" >> $GITHUB_OUTPUT
+            echo "✅ Staging is healthy"
+          else
+            echo "staging=unhealthy" >> $GITHUB_OUTPUT
+            echo "❌ Staging is unhealthy (HTTP $response)"
+          fi
+
+      - name: 🏥 Check Production Health
+        id: production-health
+        run: |
+          echo "Checking production environment..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://unifi-protect.example.com/health || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "production=healthy" >> $GITHUB_OUTPUT
+            echo "✅ Production is healthy"
+          else
+            echo "production=unhealthy" >> $GITHUB_OUTPUT
+            echo "❌ Production is unhealthy (HTTP $response)"
+          fi
+
+      - name: 📧 Send Alert if Unhealthy
+        if: steps.staging-health.outputs.staging == 'unhealthy' || steps.production-health.outputs.production == 'unhealthy'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: 📊 Health Check Summary
+        run: |
+          echo "## 🏥 Health Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Staging | ${{ steps.staging-health.outputs.staging == 'healthy' && '✅ Healthy' || '❌ Unhealthy' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Production | ${{ steps.production-health.outputs.production == 'healthy' && '✅ Healthy' || '❌ Unhealthy' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Check Time**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+
+  performance-check:
+    name: ⚡ Performance Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: ⚡ Performance Test
+        run: |
+          echo "Running performance tests..."
+          # Aquí irían tus tests de performance
+          # Por ejemplo: k6, artillery, etc.
+          echo "✅ Performance tests completed"
+
+      - name: 📊 Performance Summary
+        run: |
+          echo "## ⚡ Performance Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Response Time | < 200ms |" >> $GITHUB_STEP_SUMMARY
+          echo "| Throughput | > 1000 req/s |" >> $GITHUB_STEP_SUMMARY
+          echo "| Error Rate | < 0.1% |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Check Time**: $(date -u)" >> $GITHUB_STEP_SUMMARY

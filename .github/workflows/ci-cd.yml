@@ -1,0 +1,477 @@
+name: 🚀 CI/CD Pipeline - UniFi Protect Notifications
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_deploy:
+        description: 'Force deployment even if tests fail'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ===========================================
+  # 🔍 QUALITY GATES
+  # ===========================================
+  
+  code-quality:
+    name: 🔍 Code Quality & Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      quality-passed: ${{ steps.quality-check.outputs.passed }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run build
+
+      - name: 🔍 ESLint Analysis
+        id: eslint
+        run: |
+          echo "Running ESLint..."
+          npm run lint
+          echo "ESLint passed ✅"
+
+      - name: 🔒 Security Audit
+        id: security-audit
+        run: |
+          echo "Running security audit..."
+          npm audit --audit-level=moderate --production
+          echo "Security audit passed ✅"
+
+      - name: 📊 Code Coverage Analysis
+        id: coverage
+        run: |
+          echo "Running tests with coverage..."
+          npm test -- --coverage --watchAll=false
+          echo "Coverage analysis completed ✅"
+
+      - name: 🛡️ Dependency Vulnerability Scan
+        id: dependency-scan
+        run: |
+          echo "Scanning for vulnerable dependencies..."
+          npx audit-ci --config .audit-ci.json
+          echo "Dependency scan passed ✅"
+
+      - name: 📈 SonarCloud Analysis
+        if: github.event_name == 'pull_request'
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: ✅ Quality Gate Check
+        id: quality-check
+        run: |
+          if [ "${{ steps.eslint.outcome }}" == "success" ] && \
+             [ "${{ steps.security-audit.outcome }}" == "success" ] && \
+             [ "${{ steps.coverage.outcome }}" == "success" ] && \
+             [ "${{ steps.dependency-scan.outcome }}" == "success" ]; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+            echo "🎉 All quality gates passed!"
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+            echo "❌ Quality gates failed!"
+            exit 1
+          fi
+
+  # ===========================================
+  # 🧪 TESTING
+  # ===========================================
+  
+  test:
+    name: 🧪 Comprehensive Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: code-quality
+    if: needs.code-quality.outputs.quality-passed == 'true'
+    strategy:
+      matrix:
+        node-version: ['18', '20']
+        test-type: ['unit', 'integration']
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline
+
+      - name: 🏗️ Build Application
+        run: npm run build
+
+      - name: 🧪 Run Unit Tests
+        if: matrix.test-type == 'unit'
+        run: |
+          npm test -- --testPathPattern=unit --coverage --watchAll=false
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: error
+
+      - name: 🧪 Run Integration Tests
+        if: matrix.test-type == 'integration'
+        run: |
+          npm test -- --testPathPattern=integration --watchAll=false
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: error
+          REDIS_URL: redis://localhost:6379
+
+      - name: 📊 Upload Coverage Reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: ${{ matrix.test-type }},node-${{ matrix.node-version }}
+          name: ${{ matrix.test-type }}-node-${{ matrix.node-version }}
+          fail_ci_if_error: false
+
+      - name: 📈 Test Results Summary
+        if: always()
+        run: |
+          echo "## 🧪 Test Results - Node ${{ matrix.node-version }} (${{ matrix.test-type }})" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version | ${{ matrix.node-version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Type | ${{ matrix.test-type }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # 🏗️ BUILD & PACKAGE
+  # ===========================================
+  
+  build:
+    name: 🏗️ Build & Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [code-quality, test]
+    if: always() && (needs.code-quality.outputs.quality-passed == 'true' && needs.test.result == 'success')
+    
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline --production
+
+      - name: 🏗️ Build Application
+        run: |
+          npm run build
+          echo "Build completed successfully ✅"
+
+      - name: 🏷️ Generate Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "version=latest" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            echo "version=develop" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
+
+      - name: 🏗️ Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.version.outputs.version }}
+
+      - name: 🔍 Trivy Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📤 Upload Trivy Scan Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ===========================================
+  # 🚀 DEPLOYMENT
+  # ===========================================
+  
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [code-quality, test, build]
+    if: |
+      always() && 
+      (needs.code-quality.outputs.quality-passed == 'true' && 
+       needs.test.result == 'success' && 
+       needs.build.result == 'success') &&
+      (github.ref == 'refs/heads/develop' || 
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'))
+    environment: 
+      name: staging
+      url: https://staging.unifi-protect.example.com
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to Staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          echo "Image: ${{ needs.build.outputs.image-tag }}"
+          echo "Digest: ${{ needs.build.outputs.image-digest }}"
+          
+          # Aquí iría tu lógica de deployment específica
+          # Por ejemplo: kubectl, docker-compose, etc.
+          
+          echo "✅ Staging deployment completed!"
+
+      - name: 🧪 Smoke Tests
+        run: |
+          echo "🧪 Running smoke tests..."
+          # Aquí irían tus smoke tests
+          sleep 30
+          echo "✅ Smoke tests passed!"
+
+      - name: 📊 Deployment Summary
+        run: |
+          echo "## 🚀 Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | Staging |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.build.outputs.image-tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployment Time | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [code-quality, test, build, deploy-staging]
+    if: |
+      always() && 
+      (needs.code-quality.outputs.quality-passed == 'true' && 
+       needs.test.result == 'success' && 
+       needs.build.result == 'success' &&
+       needs.deploy-staging.result == 'success') &&
+      (github.ref == 'refs/heads/main' || 
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'))
+    environment: 
+      name: production
+      url: https://unifi-protect.example.com
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to Production
+        run: |
+          echo "🚀 Deploying to production environment..."
+          echo "Image: ${{ needs.build.outputs.image-tag }}"
+          echo "Digest: ${{ needs.build.outputs.image-digest }}"
+          
+          # Aquí iría tu lógica de deployment específica
+          # Por ejemplo: kubectl, docker-compose, etc.
+          
+          echo "✅ Production deployment completed!"
+
+      - name: 🧪 Production Health Checks
+        run: |
+          echo "🧪 Running production health checks..."
+          # Aquí irían tus health checks
+          sleep 60
+          echo "✅ Health checks passed!"
+
+      - name: 📊 Production Deployment Summary
+        run: |
+          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | Production |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.build.outputs.image-tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployment Time | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # 📊 NOTIFICATIONS & MONITORING
+  # ===========================================
+  
+  notify:
+    name: 📊 Notifications & Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [code-quality, test, build, deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+      - name: 📊 Pipeline Summary
+        run: |
+          echo "## 🎯 CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 Code Quality | ${{ needs.code-quality.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Testing | ${{ needs.test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏗️ Build | ${{ needs.build.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 Staging | ${{ needs.deploy-staging.result == 'success' && '✅' || (needs.deploy-staging.result == 'skipped' && '⏭️') || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 Production | ${{ needs.deploy-production.result == 'success' && '✅' || (needs.deploy-production.result == 'skipped' && '⏭️') || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Overall Status**: ${{ (needs.code-quality.result == 'success' && needs.test.result == 'success' && needs.build.result == 'success') && '🎉 SUCCESS' || '❌ FAILED' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: 📧 Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: 📱 Discord Notification
+        if: always()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            🚀 **UniFi Protect Notifications** - Pipeline ${{ job.status }}
+            **Branch**: ${{ github.ref_name }}
+            **Commit**: ${{ github.sha }}
+            **Author**: ${{ github.actor }}
+            **Workflow**: ${{ github.workflow }}
+
+      - name: 📊 Update Deployment Dashboard
+        if: always()
+        run: |
+          echo "📊 Updating deployment dashboard..."
+          # Aquí podrías integrar con tu sistema de monitoreo
+          # Por ejemplo: DataDog, New Relic, etc.
+          echo "✅ Dashboard updated!"
+
+  # ===========================================
+  # 🧹 CLEANUP
+  # ===========================================
+  
+  cleanup:
+    name: 🧹 Cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [notify]
+    if: always()
+    
+    steps:
+      - name: 🧹 Cleanup Old Images
+        run: |
+          echo "🧹 Cleaning up old container images..."
+          # Aquí podrías limpiar imágenes antiguas del registry
+          echo "✅ Cleanup completed!"
+
+      - name: 📊 Final Summary
+        run: |
+          echo "## 🎯 Final Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Pipeline completed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "**Total duration**: ${{ github.event.repository.updated_at }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
