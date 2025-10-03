@@ -1,21 +1,21 @@
-// Background script para la extensión de UniFi Protect
+// Background script for UniFi Protect extension
 /**
- * TIPOS DE EVENTOS UNIFI (desde UnifiProtectClient.ts):
- * - 'motion': Movimiento detectado (cámara, sensor, luz)
- * - 'person': Persona detectada
- * - 'vehicle': Vehículo detectado
- * - 'package': Paquete detectado
- * - 'doorbell': Timbre presionado
- * - 'smart_detect': Detección inteligente (audio, zona, línea, merodeo)
- * - 'sensor': Eventos de sensores (batería baja, agua, alarma, apertura, cierre, etc.)
+ * UNIFI EVENT TYPES (from UnifiProtectClient.ts):
+ * - 'motion': Motion detected (camera, sensor, light)
+ * - 'person': Person detected
+ * - 'vehicle': Vehicle detected
+ * - 'package': Package detected
+ * - 'doorbell': Doorbell pressed
+ * - 'smart_detect': Smart detection (audio, zone, line, loitering)
+ * - 'sensor': Sensor events (low battery, water, alarm, open, close, etc.)
  * 
- * SEVERIDADES:
- * - 'low': Baja (< 50 score)
- * - 'medium': Media (50-69 score)
- * - 'high': Alta (70-89 score)
- * - 'critical': Crítica (>= 90 score)
+ * SEVERITY LEVELS:
+ * - 'low': Low (< 50 score)
+ * - 'medium': Medium (50-69 score)
+ * - 'high': High (70-89 score)
+ * - 'critical': Critical (>= 90 score)
  * 
- * ESTRUCTURA DEL EVENTO (UnifiEvent):
+ * EVENT STRUCTURE (UnifiEvent):
  * {
  *   id: string,
  *   type: EventType,
@@ -34,32 +34,32 @@ class UnifiProtectExtension {
     this.clientId = this.generateClientId();
     this.token = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = Infinity; // Intentar reconectar siempre
+    this.maxReconnectAttempts = Infinity; // Always try to reconnect
     this.reconnectDelay = 5000;
-    this.connectionEnabled = true; // Por defecto, mantener conexión activa
+    this.connectionEnabled = true; // By default, keep connection active
     
     this.init();
   }
 
   async init() {
-    console.log('🚀 Iniciando extensión UniFi Protect (Service Worker)');
+    console.log('🚀 Starting UniFi Protect extension (Service Worker)');
     
-    // Cargar configuración guardada
+    // Load saved configuration
     await this.loadSettings();
     
-    // Configurar listeners de eventos
+    // Setup event listeners
     this.setupEventListeners();
     
-    // Configurar alarmas para mantener service worker activo
+    // Setup alarms to keep service worker active
     this.setupKeepAlive();
     
-    // Iniciar heartbeat para mantener conexión WebSocket
+    // Start heartbeat to maintain WebSocket connection
     this.startHeartbeat();
     
-    // Conectar automáticamente si estaba conectado antes
+    // Auto-connect if it was connected before
     if (this.connectionEnabled) {
-      console.log('🔄 Auto-conectando al servidor...');
-      setTimeout(() => this.connectToServer(), 1000); // Dar tiempo para que se cargue todo
+      console.log('🔄 Auto-connecting to server...');
+      setTimeout(() => this.connectToServer(), 1000); // Give time for everything to load
     }
   }
 

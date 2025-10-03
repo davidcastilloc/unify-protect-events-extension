@@ -1,4 +1,4 @@
-// Content script para mostrar popups flotantes en las páginas web
+// Content script to show floating popups on web pages
 class UnifiContentScript {
   constructor() {
     this.popups = new Map();
@@ -6,9 +6,9 @@ class UnifiContentScript {
   }
 
   init() {
-    console.log('🚀 Inicializando content script UniFi Protect');
+    console.log('🚀 Initializing UniFi Protect content script');
     
-    // Escuchar mensajes del background script
+    // Listen for messages from background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse);
     });
@@ -26,24 +26,24 @@ class UnifiContentScript {
         this.removePopup(message.eventId);
         break;
       default:
-        console.log('Mensaje no manejado en content script:', message);
+        console.log('Unhandled message in content script:', message);
     }
   }
 
   createFloatingPopup(event) {
     try {
-      // Verificar si ya existe un popup para este evento
+      // Check if a popup already exists for this event
       if (this.popups.has(event.id)) {
         return;
       }
 
-      // Crear el popup flotante
+      // Create floating popup
       const popup = document.createElement('div');
       popup.id = `unifi-popup-${event.id}`;
       popup.className = 'unifi-floating-popup';
       
-      // Configurar el contenido del popup
-      const timestamp = new Date(event.timestamp).toLocaleString('es-ES');
+      // Setup popup content
+      const timestamp = new Date(event.timestamp).toLocaleString('en-US');
       const severityClass = this.getSeverityClass(event.severity);
       const eventIcon = this.getEventIcon(event.type);
       
@@ -62,53 +62,53 @@ class UnifiContentScript {
           <div class="popup-description">${event.description}</div>
           <div class="popup-details">
             <div class="detail-item">
-              <span class="detail-label">Hora:</span>
+              <span class="detail-label">Time:</span>
               <span class="detail-value">${timestamp}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Severidad:</span>
+              <span class="detail-label">Severity:</span>
               <span class="detail-value severity-${event.severity}">${this.getSeverityLabel(event.severity)}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Tipo:</span>
+              <span class="detail-label">Type:</span>
               <span class="detail-value">${this.getEventTypeLabel(event.type)}</span>
             </div>
           </div>
         </div>
         <div class="popup-actions">
-          <button class="popup-btn popup-btn-primary">Ver Detalles</button>
-          <button class="popup-btn popup-btn-secondary">Cerrar</button>
+          <button class="popup-btn popup-btn-primary">View Details</button>
+          <button class="popup-btn popup-btn-secondary">Close</button>
         </div>
       `;
       
-      // Agregar estilos CSS si no existen
+      // Add CSS styles if they don't exist
       this.ensurePopupStyles();
       
-      // Agregar event listeners
+      // Add event listeners
       this.setupPopupEventListeners(popup, event);
       
-      // Agregar el popup al DOM
+      // Add popup to DOM
       document.body.appendChild(popup);
       
-      // Guardar referencia
+      // Save reference
       this.popups.set(event.id, popup);
       
-      // Animar entrada
+      // Animate entry
       setTimeout(() => {
         popup.classList.add('popup-visible');
       }, 10);
       
-      // Auto-cerrar después de 10 segundos (excepto para eventos críticos)
+      // Auto-close after 10 seconds (except for critical events)
       if (event.severity !== 'critical') {
         setTimeout(() => {
           this.removePopup(event.id);
         }, 10000);
       }
       
-      console.log('🎯 Popup flotante creado para evento:', event.id);
+      console.log('🎯 Floating popup created for event:', event.id);
       
     } catch (error) {
-      console.error('❌ Error creando popup flotante:', error);
+      console.error('❌ Error creating floating popup:', error);
     }
   }
 
@@ -152,13 +152,13 @@ class UnifiContentScript {
   }
 
   showEventDetails(event) {
-    // Verificar si ya existe un modal para este evento
+    // Check if a modal already exists for this event
     const existingModal = document.querySelector(`#unifi-modal-${event.id}`);
     if (existingModal) {
       return; // No mostrar modal duplicado
     }
 
-    // Crear un modal con detalles completos del evento
+    // Create a modal with complete event details
     const modal = document.createElement('div');
     modal.id = `unifi-modal-${event.id}`;
     modal.className = 'unifi-event-modal';
@@ -172,7 +172,7 @@ class UnifiContentScript {
           <div class="modal-body">
             <div class="event-detail-grid">
               <div class="detail-section">
-                <h3>Información General</h3>
+                <h3>General Information</h3>
                 <div class="detail-row">
                   <span class="label">ID del Evento:</span>
                   <span class="value">${event.id}</span>
@@ -192,7 +192,7 @@ class UnifiContentScript {
               </div>
               
               <div class="detail-section">
-                <h3>Información de la Cámara</h3>
+                <h3>Camera Information</h3>
                 <div class="detail-row">
                   <span class="label">Nombre:</span>
                   <span class="value">${event.camera.name}</span>

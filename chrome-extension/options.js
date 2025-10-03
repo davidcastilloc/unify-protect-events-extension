@@ -1,4 +1,4 @@
-// Script para la página de opciones de la extensión UniFi Protect
+// Script for the UniFi Protect extension options page
 class OptionsController {
   constructor() {
     this.defaultSettings = {
@@ -36,18 +36,18 @@ class OptionsController {
   }
 
   async init() {
-    console.log('🚀 Inicializando página de opciones');
+    console.log('🚀 Initializing options page');
     
-    // Cargar configuración guardada
+    // Load saved configuration
     await this.loadSettings();
     
-    // Configurar event listeners
+    // Setup event listeners
     this.setupEventListeners();
     
-    // Cargar cámaras disponibles
+    // Load available cameras
     await this.loadCameras();
     
-    // Actualizar UI
+    // Update UI
     this.updateUI();
   }
 
@@ -55,23 +55,23 @@ class OptionsController {
     try {
       const settings = await chrome.storage.sync.get(Object.keys(this.defaultSettings));
       
-      // Aplicar configuración cargada o usar valores por defecto
+      // Apply loaded configuration or use default values
       Object.keys(this.defaultSettings).forEach(key => {
         if (settings[key] !== undefined) {
           this.defaultSettings[key] = settings[key];
         }
       });
       
-      console.log('⚙️ Configuración cargada:', this.defaultSettings);
+      console.log('⚙️ Configuration loaded:', this.defaultSettings);
       
     } catch (error) {
-      console.error('❌ Error cargando configuración:', error);
-      this.showToast('Error cargando configuración', 'error');
+      console.error('❌ Error loading configuration:', error);
+      this.showToast('Error loading configuration', 'error');
     }
   }
 
   setupEventListeners() {
-    // Botones principales
+    // Main buttons
     document.getElementById('saveBtn').addEventListener('click', () => {
       this.saveSettings();
     });
@@ -80,7 +80,7 @@ class OptionsController {
       this.resetSettings();
     });
     
-    // Botones de prueba
+    // Test buttons
     document.getElementById('testConnectionBtn').addEventListener('click', () => {
       this.testConnection();
     });
@@ -101,7 +101,7 @@ class OptionsController {
       this.importConfig();
     });
     
-    // Links del footer
+    // Footer links
     document.getElementById('helpLink').addEventListener('click', (e) => {
       e.preventDefault();
       this.showHelp();
@@ -112,22 +112,22 @@ class OptionsController {
       this.showFeedback();
     });
     
-    // File input para importar
+    // File input for import
     document.getElementById('importFileInput').addEventListener('change', (e) => {
       this.handleImportFile(e.target.files[0]);
     });
     
-    // Auto-save en cambios
+    // Auto-save on changes
     this.setupAutoSave();
   }
 
   setupAutoSave() {
-    // Auto-guardar cuando cambien los valores
+    // Auto-save when values change
     const inputs = document.querySelectorAll('input, select');
     inputs.forEach(input => {
       input.addEventListener('change', () => {
         this.debounce(() => {
-          this.saveSettings(false); // false = no mostrar toast
+          this.saveSettings(false); // false = don't show toast
         }, 1000)();
       });
     });
@@ -146,21 +146,21 @@ class OptionsController {
   }
 
   updateUI() {
-    // Configuración del servidor
+    // Server configuration
     document.getElementById('serverUrl').value = this.defaultSettings.serverUrl;
     document.getElementById('connectionTimeout').value = this.defaultSettings.connectionTimeout;
     document.getElementById('reconnectAttempts').value = this.defaultSettings.reconnectAttempts;
     
-    // Configuración de notificaciones
+    // Notification configuration
     document.getElementById('notificationsEnabled').checked = this.defaultSettings.notificationsEnabled;
     document.getElementById('soundEnabled').checked = this.defaultSettings.soundEnabled;
     document.getElementById('notificationDuration').value = this.defaultSettings.notificationDuration;
     document.getElementById('maxNotifications').value = this.defaultSettings.maxNotifications;
     
-    // Filtros de eventos
+    // Event filters
     document.getElementById('filtersEnabled').checked = this.defaultSettings.filtersEnabled;
     
-    // Tipos de eventos
+    // Event types
     Object.keys(this.defaultSettings.eventTypes).forEach(type => {
       const checkbox = document.getElementById(`filter${type.charAt(0).toUpperCase() + type.slice(1)}`);
       if (checkbox) {
@@ -168,7 +168,7 @@ class OptionsController {
       }
     });
     
-    // Niveles de severidad
+    // Severity levels
     Object.keys(this.defaultSettings.severityLevels).forEach(level => {
       const checkbox = document.getElementById(`filter${level.charAt(0).toUpperCase() + level.slice(1)}`);
       if (checkbox) {
@@ -176,7 +176,7 @@ class OptionsController {
       }
     });
     
-    // Configuración avanzada
+    // Advanced configuration
     document.getElementById('debugMode').checked = this.defaultSettings.debugMode;
     document.getElementById('autoReconnect').checked = this.defaultSettings.autoReconnect;
     document.getElementById('heartbeatInterval').value = this.defaultSettings.heartbeatInterval;
@@ -192,18 +192,18 @@ class OptionsController {
         const cameras = await response.json();
         this.populateCameraSelect(cameras);
       } else {
-        this.addTestResult('No se pudieron cargar las cámaras del servidor', 'error');
+        this.addTestResult('Could not load cameras from server', 'error');
       }
       
     } catch (error) {
-      console.error('❌ Error cargando cámaras:', error);
-      this.addTestResult('Error conectando al servidor para obtener cámaras', 'error');
+      console.error('❌ Error loading cameras:', error);
+      this.addTestResult('Error connecting to server to get cameras', 'error');
     }
   }
 
   populateCameraSelect(cameras) {
     const select = document.getElementById('cameraFilter');
-    select.innerHTML = '<option value="">Todas las cámaras</option>';
+    select.innerHTML = '<option value="">All cameras</option>';
     
     cameras.forEach(camera => {
       const option = document.createElement('option');
@@ -220,21 +220,21 @@ class OptionsController {
       
       await chrome.storage.sync.set(settings);
       
-      // Enviar configuración actualizada al background script
+      // Send updated configuration to background script
       await this.sendMessageToBackground({
         type: 'updateSettings',
         settings: settings
       });
       
       if (showToast) {
-        this.showToast('Configuración guardada exitosamente', 'success');
+        this.showToast('Configuration saved successfully', 'success');
       }
       
-      console.log('💾 Configuración guardada:', settings);
+      console.log('💾 Configuration saved:', settings);
       
     } catch (error) {
-      console.error('❌ Error guardando configuración:', error);
-      this.showToast('Error guardando configuración', 'error');
+      console.error('❌ Error saving configuration:', error);
+      this.showToast('Error saving configuration', 'error');
     }
   }
 
@@ -276,15 +276,15 @@ class OptionsController {
   }
 
   async resetSettings() {
-    if (confirm('¿Estás seguro de que quieres restaurar todos los valores por defecto?')) {
+    if (confirm('Are you sure you want to restore all default values?')) {
       try {
         await chrome.storage.sync.clear();
         this.defaultSettings = { ...this.defaultSettings };
         this.updateUI();
-        this.showToast('Configuración restaurada a valores por defecto', 'info');
+        this.showToast('Configuration restored to default values', 'info');
       } catch (error) {
-        console.error('❌ Error restaurando configuración:', error);
-        this.showToast('Error restaurando configuración', 'error');
+        console.error('❌ Error restoring configuration:', error);
+        this.showToast('Error restoring configuration', 'error');
       }
     }
   }
@@ -293,7 +293,7 @@ class OptionsController {
     const testBtn = document.getElementById('testConnectionBtn');
     const originalText = testBtn.innerHTML;
     
-    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
+    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
     testBtn.disabled = true;
     
     try {

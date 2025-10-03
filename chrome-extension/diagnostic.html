@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diagnóstico de Conectividad UniFi</title>
+    <title>UniFi Connectivity Diagnostics</title>
     <style>
         * {
             margin: 0;
@@ -219,86 +219,86 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 Diagnóstico de Conectividad</h1>
-            <p>Herramienta para verificar la conexión entre la extensión y el servidor WebSocket</p>
+            <h1>🔍 Connectivity Diagnostics</h1>
+            <p>Tool to verify the connection between the extension and WebSocket server</p>
         </div>
 
         <div class="content">
             <!-- Prueba 1: Servidor HTTP -->
             <div class="test-section">
-                <h2>🌐 Prueba 1: Servidor HTTP</h2>
+                <h2>🌐 Test 1: HTTP Server</h2>
                 <div id="httpTest" class="test-result pending">
                     <span class="status-icon">⏳</span>
                     <div class="test-details">
-                        <div class="test-label">Conectando al servidor...</div>
-                        <div class="test-info">Verificando disponibilidad del servidor HTTP</div>
+                        <div class="test-label">Connecting to server...</div>
+                        <div class="test-info">Verifying HTTP server availability</div>
                     </div>
                 </div>
             </div>
 
             <!-- Prueba 2: Obtener Token -->
             <div class="test-section">
-                <h2>🔑 Prueba 2: Autenticación</h2>
+                <h2>🔑 Test 2: Authentication</h2>
                 <div id="tokenTest" class="test-result pending">
                     <span class="status-icon">⏳</span>
                     <div class="test-details">
-                        <div class="test-label">Esperando prueba de servidor...</div>
-                        <div class="test-info">Generando token de autenticación</div>
+                        <div class="test-label">Waiting for server test...</div>
+                        <div class="test-info">Generating authentication token</div>
                     </div>
                 </div>
             </div>
 
             <!-- Prueba 3: Conexión WebSocket -->
             <div class="test-section">
-                <h2>🔌 Prueba 3: Conexión WebSocket</h2>
+                <h2>🔌 Test 3: WebSocket Connection</h2>
                 <div id="wsTest" class="test-result pending">
                     <span class="status-icon">⏳</span>
                     <div class="test-details">
-                        <div class="test-label">Esperando token...</div>
-                        <div class="test-info">Estableciendo conexión WebSocket</div>
+                        <div class="test-label">Waiting for token...</div>
+                        <div class="test-info">Establishing WebSocket connection</div>
                     </div>
                 </div>
             </div>
 
             <!-- Prueba 4: Recepción de Mensajes -->
             <div class="test-section">
-                <h2>📨 Prueba 4: Recepción de Mensajes</h2>
+                <h2>📨 Test 4: Message Reception</h2>
                 <div id="messageTest" class="test-result pending">
                     <span class="status-icon">⏳</span>
                     <div class="test-details">
-                        <div class="test-label">Esperando conexión WebSocket...</div>
-                        <div class="test-info">Esperando mensaje de bienvenida del servidor</div>
+                        <div class="test-label">Waiting for WebSocket connection...</div>
+                        <div class="test-info">Waiting for welcome message from server</div>
                     </div>
                 </div>
             </div>
 
             <!-- Prueba 5: Evento de Simulación -->
             <div class="test-section">
-                <h2>🎭 Prueba 5: Evento de Simulación</h2>
+                <h2>🎭 Test 5: Event Simulation</h2>
                 <div id="simulationTest" class="test-result pending">
                     <span class="status-icon">⏳</span>
                     <div class="test-details">
-                        <div class="test-label">Esperando conexión...</div>
-                        <div class="test-info">Generando evento de prueba</div>
+                        <div class="test-label">Waiting for connection...</div>
+                        <div class="test-info">Generating test event</div>
                     </div>
                 </div>
             </div>
 
             <!-- Estadísticas -->
             <div class="test-section">
-                <h2>📊 Estadísticas</h2>
+                <h2>📊 Statistics</h2>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-value" id="clientsCount">-</div>
-                        <div class="stat-label">Clientes Conectados</div>
+                        <div class="stat-label">Connected Clients</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="eventsReceived">0</div>
-                        <div class="stat-label">Eventos Recibidos</div>
+                        <div class="stat-label">Events Received</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="latency">-</div>
-                        <div class="stat-label">Latencia (ms)</div>
+                        <div class="stat-label">Latency (ms)</div>
                     </div>
                 </div>
             </div>
@@ -306,13 +306,13 @@
             <!-- Botones de acción -->
             <div class="button-group">
                 <button class="primary" id="runTestBtn" onclick="runFullDiagnostic()">
-                    🔄 Ejecutar Diagnóstico
+                    🔄 Run Diagnostics
                 </button>
                 <button class="secondary" id="generateEventBtn" onclick="generateTestEvent()" disabled>
-                    🎯 Generar Evento de Prueba
+                    🎯 Generate Test Event
                 </button>
                 <button class="secondary" onclick="clearLogs()">
-                    🗑️ Limpiar Logs
+                    🗑️ Clear Logs
                 </button>
             </div>
 

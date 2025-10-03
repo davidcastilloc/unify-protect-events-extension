@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Configuración - UniFi Protect Notifications</title>
+  <title>Settings - UniFi Protect Notifications</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
@@ -13,16 +13,16 @@
       <div class="header-content">
         <div class="logo">
           <img src="icons/icon48.png" alt="UniFi Protect" class="logo-icon">
-          <h1>Configuración UniFi Protect</h1>
+          <h1>UniFi Protect Settings</h1>
         </div>
         <div class="header-actions">
           <button id="saveBtn" class="btn btn-primary">
             <span class="btn-icon">💾</span>
-            Guardar Configuración
+            Save Settings
           </button>
           <button id="resetBtn" class="btn btn-secondary">
             <span class="btn-icon">🔄</span>
-            Restaurar Valores
+            Reset Values
           </button>
         </div>
       </div>
@@ -33,41 +33,41 @@
       <!-- Server Configuration -->
       <div class="section">
         <div class="section-header">
-          <h2>🔗 Configuración del Servidor</h2>
-          <p>Configura la conexión con tu servidor UniFi Protect</p>
+          <h2>🔗 Server Configuration</h2>
+          <p>Configure the connection to your UniFi Protect server</p>
         </div>
         
         <div class="form-group">
-          <label for="serverUrl">URL del Servidor</label>
+          <label for="serverUrl">Server URL</label>
           <input type="url" id="serverUrl" placeholder="http://localhost:3001" required>
-          <small>URL completa del servidor donde está ejecutándose el backend</small>
+          <small>Complete URL of the server where the backend is running</small>
         </div>
 
         <div class="form-group">
-          <label for="connectionTimeout">Timeout de Conexión (segundos)</label>
+          <label for="connectionTimeout">Connection Timeout (seconds)</label>
           <input type="number" id="connectionTimeout" min="5" max="60" value="30">
-          <small>Tiempo máximo para establecer conexión con el servidor</small>
+          <small>Maximum time to establish connection with the server</small>
         </div>
 
         <div class="form-group">
-          <label for="reconnectAttempts">Intentos de Reconexión</label>
+          <label for="reconnectAttempts">Reconnection Attempts</label>
           <input type="number" id="reconnectAttempts" min="1" max="10" value="5">
-          <small>Número máximo de intentos de reconexión automática</small>
+          <small>Maximum number of automatic reconnection attempts</small>
         </div>
       </div>
 
       <!-- Notification Settings -->
       <div class="section">
         <div class="section-header">
-          <h2>🔔 Configuración de Notificaciones</h2>
-          <p>Personaliza cómo y cuándo recibir notificaciones</p>
+          <h2>🔔 Notification Settings</h2>
+          <p>Customize how and when to receive notifications</p>
         </div>
 
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="notificationsEnabled" checked>
             <span class="checkmark"></span>
-            Habilitar Notificaciones del Navegador
+            Enable Browser Notifications
           </label>
         </div>
 
@@ -75,71 +75,71 @@
           <label class="checkbox-label">
             <input type="checkbox" id="soundEnabled" checked>
             <span class="checkmark"></span>
-            Habilitar Sonidos de Notificación
+            Enable Notification Sounds
           </label>
         </div>
 
         <div class="form-group">
-          <label for="notificationDuration">Duración de Notificación (segundos)</label>
+          <label for="notificationDuration">Notification Duration (seconds)</label>
           <input type="number" id="notificationDuration" min="3" max="30" value="10">
-          <small>Tiempo que permanece visible la notificación</small>
+          <small>Time the notification remains visible</small>
         </div>
 
         <div class="form-group">
-          <label for="maxNotifications">Máximo de Notificaciones Simultáneas</label>
+          <label for="maxNotifications">Maximum Simultaneous Notifications</label>
           <input type="number" id="maxNotifications" min="1" max="10" value="5">
-          <small>Número máximo de notificaciones que se pueden mostrar al mismo tiempo</small>
+          <small>Maximum number of notifications that can be shown at the same time</small>
         </div>
       </div>
 
       <!-- Event Filters -->
       <div class="section">
         <div class="section-header">
-          <h2>🎯 Filtros de Eventos</h2>
-          <p>Selecciona qué tipos de eventos quieres recibir</p>
+          <h2>🎯 Event Filters</h2>
+          <p>Select which types of events you want to receive</p>
         </div>
 
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="filtersEnabled" checked>
             <span class="checkmark"></span>
-            Habilitar Filtros de Eventos
+            Enable Event Filters
           </label>
         </div>
 
         <div class="filters-grid">
           <div class="filter-group">
-            <h3>Tipos de Eventos</h3>
+            <h3>Event Types</h3>
             <div class="filter-options">
               <label class="checkbox-label">
                 <input type="checkbox" id="filterMotion" checked>
                 <span class="checkmark"></span>
-                Movimiento
+                Motion
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterPerson" checked>
                 <span class="checkmark"></span>
-                Persona
+                Person
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterVehicle" checked>
                 <span class="checkmark"></span>
-                Vehículo
+                Vehicle
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterPackage" checked>
                 <span class="checkmark"></span>
-                Paquete
+                Package
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterDoorbell" checked>
                 <span class="checkmark"></span>
-                Timbre
+                Doorbell
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterSmartDetect" checked>
                 <span class="checkmark"></span>
-                Detección Inteligente
+                Smart Detect
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterSensor" checked>
@@ -150,111 +150,111 @@
           </div>
 
           <div class="filter-group">
-            <h3>Niveles de Severidad</h3>
+            <h3>Severity Levels</h3>
             <div class="filter-options">
               <label class="checkbox-label">
                 <input type="checkbox" id="filterLow" checked>
                 <span class="checkmark"></span>
-                Baja
+                Low
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterMedium" checked>
                 <span class="checkmark"></span>
-                Media
+                Medium
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterHigh" checked>
                 <span class="checkmark"></span>
-                Alta
+                High
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="filterCritical" checked>
                 <span class="checkmark"></span>
-                Crítica
+                Critical
               </label>
             </div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="cameraFilter">Filtrar por Cámaras Específicas</label>
+          <label for="cameraFilter">Filter by Specific Cameras</label>
           <select id="cameraFilter" multiple>
-            <option value="">Todas las cámaras</option>
+            <option value="">All cameras</option>
           </select>
-          <small>Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples cámaras</small>
+          <small>Hold Ctrl (Cmd on Mac) to select multiple cameras</small>
         </div>
       </div>
 
       <!-- Advanced Settings -->
       <div class="section">
         <div class="section-header">
-          <h2>⚙️ Configuración Avanzada</h2>
-          <p>Opciones avanzadas para usuarios experimentados</p>
+          <h2>⚙️ Advanced Settings</h2>
+          <p>Advanced options for experienced users</p>
         </div>
 
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="debugMode">
             <span class="checkmark"></span>
-            Modo Debug
+            Debug Mode
           </label>
-          <small>Habilita logs detallados en la consola del navegador</small>
+          <small>Enable detailed logs in the browser console</small>
         </div>
 
         <div class="form-group">
           <label class="checkbox-label">
             <input type="checkbox" id="autoReconnect" checked>
             <span class="checkmark"></span>
-            Reconexión Automática
+            Auto Reconnection
           </label>
-          <small>Intenta reconectar automáticamente si se pierde la conexión</small>
+          <small>Try to automatically reconnect if the connection is lost</small>
         </div>
 
         <div class="form-group">
-          <label for="heartbeatInterval">Intervalo de Heartbeat (segundos)</label>
+          <label for="heartbeatInterval">Heartbeat Interval (seconds)</label>
           <input type="number" id="heartbeatInterval" min="10" max="300" value="30">
-          <small>Frecuencia con la que se envía un ping al servidor para mantener la conexión</small>
+          <small>Frequency with which a ping is sent to the server to maintain the connection</small>
         </div>
 
         <div class="form-group">
-          <label for="eventHistorySize">Tamaño del Historial de Eventos</label>
+          <label for="eventHistorySize">Event History Size</label>
           <input type="number" id="eventHistorySize" min="10" max="100" value="50">
-          <small>Número máximo de eventos a mantener en el historial local</small>
+          <small>Maximum number of events to keep in local history</small>
         </div>
       </div>
 
       <!-- Test Section -->
       <div class="section">
         <div class="section-header">
-          <h2>🧪 Pruebas y Diagnóstico</h2>
-          <p>Herramientas para probar la configuración</p>
+          <h2>🧪 Testing and Diagnostics</h2>
+          <p>Tools to test the configuration</p>
         </div>
 
         <div class="test-actions">
           <button id="testConnectionBtn" class="btn btn-outline">
             <span class="btn-icon">🔗</span>
-            Probar Conexión
+            Test Connection
           </button>
           <button id="testNotificationBtn" class="btn btn-outline">
             <span class="btn-icon">🔔</span>
-            Probar Notificación
+            Test Notification
           </button>
           <button id="clearHistoryBtn" class="btn btn-outline">
             <span class="btn-icon">🗑️</span>
-            Limpiar Historial
+            Clear History
           </button>
           <button id="exportConfigBtn" class="btn btn-outline">
             <span class="btn-icon">📤</span>
-            Exportar Configuración
+            Export Configuration
           </button>
           <button id="importConfigBtn" class="btn btn-outline">
             <span class="btn-icon">📥</span>
-            Importar Configuración
+            Import Configuration
           </button>
         </div>
 
         <div class="test-results" id="testResults">
-          <!-- Los resultados de las pruebas aparecerán aquí -->
+          <!-- Test results will appear here -->
         </div>
       </div>
     </div>
@@ -265,12 +265,12 @@
         <div class="footer-info">
           <span>UniFi Protect Notifications v1.0.0</span>
           <span>•</span>
-          <span>Desarrollado por David</span>
+          <span>Developed by David</span>
         </div>
         <div class="footer-links">
-          <a href="#" id="helpLink">Ayuda</a>
+          <a href="#" id="helpLink">Help</a>
           <span>•</span>
-          <a href="#" id="feedbackLink">Enviar Feedback</a>
+          <a href="#" id="feedbackLink">Send Feedback</a>
         </div>
       </div>
     </div>

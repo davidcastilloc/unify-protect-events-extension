@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prueba Modal UniFi</title>
+    <title>UniFi Modal Test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -50,39 +50,39 @@
 </head>
 <body>
     <div class="test-container">
-        <h1>🔔 Prueba de Modal UniFi Protect</h1>
+        <h1>🔔 UniFi Protect Modal Test</h1>
         
-        <p>Esta página simula eventos del websocket para probar que el modal se muestra correctamente cuando llegan eventos.</p>
+        <p>This page simulates WebSocket events to test that the modal displays correctly when events arrive.</p>
         
         <div class="event-info">
-            <h3>Instrucciones:</h3>
-            <p>1. Asegúrate de que la extensión esté instalada y activa</p>
-            <p>2. Haz clic en los botones de abajo para simular diferentes tipos de eventos</p>
-            <p>3. El modal debería aparecer automáticamente en la página</p>
+            <h3>Instructions:</h3>
+            <p>1. Make sure the extension is installed and active</p>
+            <p>2. Click the buttons below to simulate different types of events</p>
+            <p>3. The modal should appear automatically on the page</p>
         </div>
         
-        <h3>Simular Eventos:</h3>
+        <h3>Simulate Events:</h3>
         <button class="test-button" onclick="simulateEvent('motion', 'low')">
-            🏃 Movimiento (Baja Severidad)
+            🏃 Motion (Low Severity)
         </button>
         <button class="test-button" onclick="simulateEvent('person', 'medium')">
-            👤 Persona (Media Severidad)
+            👤 Person (Medium Severity)
         </button>
         <button class="test-button" onclick="simulateEvent('vehicle', 'high')">
-            🚗 Vehículo (Alta Severidad)
+            🚗 Vehicle (High Severity)
         </button>
         <button class="test-button" onclick="simulateEvent('doorbell', 'critical')">
-            🔔 Timbre (Crítica Severidad)
+            🔔 Doorbell (Critical Severity)
         </button>
         <button class="test-button" onclick="simulateEvent('package', 'medium')">
-            📦 Paquete (Media Severidad)
+            📦 Package (Medium Severity)
         </button>
         
         <div class="event-info">
-            <h3>Notas:</h3>
-            <p>• Los modales se auto-cierran después de 15 segundos (excepto eventos críticos)</p>
-            <p>• Los eventos críticos permanecen abiertos hasta cerrarlos manualmente</p>
-            <p>• No se mostrarán modales duplicados para el mismo evento</p>
+            <h3>Notes:</h3>
+            <p>• Modals auto-close after 15 seconds (except critical events)</p>
+            <p>• Critical events remain open until manually closed</p>
+            <p>• Duplicate modals will not be shown for the same event</p>
         </div>
     </div>
 
@@ -93,48 +93,48 @@
                 type: type,
                 severity: severity,
                 timestamp: new Date().toISOString(),
-                description: `Evento de prueba: ${getEventDescription(type)}`,
+                description: `Test event: ${getEventDescription(type)}`,
                 camera: {
                     id: `camera-${Math.floor(Math.random() * 1000)}`,
-                    name: `Cámara de Prueba ${Math.floor(Math.random() * 10) + 1}`,
+                    name: `Test Camera ${Math.floor(Math.random() * 10) + 1}`,
                     model: 'G4 Pro'
                 }
             };
 
-            // Simular el mensaje que enviaría el background script
+            // Simulate the message that the background script would send
             const message = {
                 type: 'showModal',
                 event: event
             };
 
-            // Enviar mensaje al content script (si está disponible)
+            // Send message to content script (if available)
             if (typeof chrome !== 'undefined' && chrome.runtime) {
                 chrome.runtime.sendMessage(message).catch(error => {
-                    console.log('No se pudo enviar mensaje:', error);
-                    // Si no hay extensión, mostrar el modal directamente
+                    console.log('Could not send message:', error);
+                    // If no extension, show modal directly
                     showModalDirectly(event);
                 });
             } else {
-                // Si no hay extensión, mostrar el modal directamente
+                // If no extension, show modal directly
                 showModalDirectly(event);
             }
         }
 
         function getEventDescription(type) {
             const descriptions = {
-                'motion': 'Se detectó movimiento en el área vigilada',
-                'person': 'Se detectó una persona en la cámara',
-                'vehicle': 'Se detectó un vehículo en el área',
-                'doorbell': 'El timbre fue presionado',
-                'package': 'Se detectó un paquete en la entrada',
-                'sensor': 'El sensor fue activado',
-                'smart_detect': 'Detección inteligente activada'
+                'motion': 'Motion detected in the monitored area',
+                'person': 'Person detected on camera',
+                'vehicle': 'Vehicle detected in the area',
+                'doorbell': 'Doorbell was pressed',
+                'package': 'Package detected at entrance',
+                'sensor': 'Sensor was activated',
+                'smart_detect': 'Smart detection activated'
             };
-            return descriptions[type] || 'Evento de prueba';
+            return descriptions[type] || 'Test event';
         }
 
         function showModalDirectly(event) {
-            // Crear modal directamente si no hay extensión
+            // Create modal directly if no extension
             const modal = document.createElement('div');
             modal.id = `unifi-modal-${event.id}`;
             modal.className = 'unifi-event-modal';
@@ -179,7 +179,7 @@
                             align-items: center;
                         ">
                             <h2 style="margin: 0; color: #333; font-size: 20px; font-weight: 600;">
-                                🔔 Evento UniFi Detectado
+                                🔔 UniFi Event Detected
                             </h2>
                             <button onclick="this.closest('.unifi-event-modal').remove()" style="
                                 background: none;
