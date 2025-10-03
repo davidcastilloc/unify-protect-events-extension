@@ -105,7 +105,6 @@ class PopupController {
   async connect() {
     try {
       const connectBtn = document.getElementById('connectBtn');
-      const disconnectBtn = document.getElementById('disconnectBtn');
       
       connectBtn.disabled = true;
       connectBtn.textContent = 'Conectando...';
@@ -250,6 +249,9 @@ class PopupController {
     document.getElementById('notificationsSent').textContent = this.stats.notificationsSent;
   }
 
+  /**
+   * ACTUALIZACIÓN CLAVE: Muestra la descripción y gravedad del evento.
+   */
   updateRecentEvents() {
     const eventsList = document.getElementById('eventsList');
     
@@ -264,12 +266,16 @@ class PopupController {
     }
     
     eventsList.innerHTML = this.recentEvents.map(event => `
-      <div class="event-item">
+      <div class="event-item severity-${event.severity.toLowerCase()}">
         <div class="event-header">
+          <span class="event-icon">${this.getSeverityIcon(event.severity)}</span>
           <span class="event-type">${this.getEventTypeLabel(event.type)}</span>
           <span class="event-time">${this.formatTime(event.timestamp)}</span>
         </div>
-        <div class="event-camera">${event.camera.name}</div>
+        <div class="event-details">
+          <div class="event-camera">${event.camera.name}</div>
+          <div class="event-description">${event.description}</div>
+        </div>
       </div>
     `).join('');
   }
@@ -291,7 +297,25 @@ class PopupController {
       'sensor': 'Sensor'
     };
     
-    return labels[eventType] || eventType;
+    return labels[eventType.toLowerCase()] || eventType;
+  }
+
+  /**
+   * FUNCIÓN NUEVA: Retorna un ícono basado en la gravedad (severity) del evento.
+   */
+  getSeverityIcon(severity) {
+    switch (severity.toUpperCase()) {
+      case 'CRITICAL':
+        return '🚨';
+      case 'HIGH':
+        return '⚠️';
+      case 'MEDIUM':
+        return '🔸';
+      case 'LOW':
+        return '🔹';
+      default:
+        return 'ℹ️';
+    }
   }
 
   formatTime(timestamp) {
