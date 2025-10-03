@@ -493,76 +493,169 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   }
 
   // Lógica de descripción enriquecida (CORREGIDA)
-  private getEventDescription(event: UnifiProtectEvent): string {
-      let description = '';
+  // private getEventDescription(event: UnifiProtectEvent): string {
+  //     let description = '';
       
-      const baseEvent = event as BaseEvent;
+  //     const baseEvent = event as BaseEvent;
       
-      switch (baseEvent.type) {
-          case 'ring':
-              description = '🔔 ¡Timbre presionado!';
-              break;
+  //     switch (baseEvent.type) {
+  //         case 'ring':
+  //             description = '🔔 ¡Timbre presionado!';
+  //             break;
 
-          case 'cameraMotion':
-              const motionEvent = event as CameraMotionEvent;
-              const motionScore = motionEvent.score ?? 'N/A';
-              description = `Movimiento detectado por la cámara. Confianza: ${motionScore}%.`;
-              break;
+  //         case 'cameraMotion':
+  //             const motionEvent = event as CameraMotionEvent;
+  //             const motionScore = motionEvent.score ?? 'N/A';
+  //             description = `Movimiento detectado por la cámara. Confianza: ${motionScore}%.`;
+  //             break;
               
-          case 'cameraSmartDetectZone':
-          case 'smartDetectZone': 
-          case 'cameraSmartDetectLine':
-          case 'cameraSmartDetectLoiter':
-              const smartBaseEvent = event as BaseEvent;
-              const score = smartBaseEvent.score ?? 'N/A';
-              let detail = '';
+  //         case 'cameraSmartDetectZone':
+  //         case 'smartDetectZone': 
+  //         case 'cameraSmartDetectLine':
+  //         case 'cameraSmartDetectLoiter':
+  //             const smartBaseEvent = event as BaseEvent;
+  //             const score = smartBaseEvent.score ?? 'N/A';
+  //             let detail = '';
 
-              if (baseEvent.type === 'cameraSmartDetectZone' || baseEvent.type === 'smartDetectZone') {
-                  const zoneEvent = event as CameraSmartDetectZoneEvent;
-                  detail = `en la Zona: ${zoneEvent.zone ?? 'Desconocida'}.`;
-              } else if (baseEvent.type === 'cameraSmartDetectLine') {
-                  const lineEvent = event as CameraSmartDetectLineEvent;
-                  detail = `Línea cruzada: ${lineEvent.line ?? 'N/A'}. Dirección: ${lineEvent.direction ?? 'N/A'}.`;
-              } else if (baseEvent.type === 'cameraSmartDetectLoiter') {
-                  const loiterEvent = event as CameraSmartDetectLoiterEvent;
-                  detail = `(Merodeo detectado por ${loiterEvent.duration ?? 'N/A'} segundos).`;
-              } else {
-                  detail = 'detectado.';
-              }
+  //             if (baseEvent.type === 'cameraSmartDetectZone' || baseEvent.type === 'smartDetectZone') {
+  //                 const zoneEvent = event as CameraSmartDetectZoneEvent;
+  //                 detail = `en la Zona: ${zoneEvent.zone ?? 'Desconocida'}.`;
+  //             } else if (baseEvent.type === 'cameraSmartDetectLine') {
+  //                 const lineEvent = event as CameraSmartDetectLineEvent;
+  //                 detail = `Línea cruzada: ${lineEvent.line ?? 'N/A'}. Dirección: ${lineEvent.direction ?? 'N/A'}.`;
+  //             } else if (baseEvent.type === 'cameraSmartDetectLoiter') {
+  //                 const loiterEvent = event as CameraSmartDetectLoiterEvent;
+  //                 detail = `(Merodeo detectado por ${loiterEvent.duration ?? 'N/A'} segundos).`;
+  //             } else {
+  //                 detail = 'detectado.';
+  //             }
               
-              description = `🚨 Detección Inteligente ${detail} Confianza: ${score}%.`;
-              break;
+  //             description = `🚨 Detección Inteligente ${detail} Confianza: ${score}%.`;
+  //             break;
 
-          case 'cameraSmartDetectAudio':
-              const audioEvent = event as CameraSmartDetectAudioEvent;
-              description = `🔊 Audio detectado: ${audioEvent.audioType ?? 'Desconocido'}. Confianza: ${audioEvent.score ?? 'N/A'}%.`;
-              break;
+  //         case 'cameraSmartDetectAudio':
+  //             const audioEvent = event as CameraSmartDetectAudioEvent;
+  //             description = `🔊 Audio detectado: ${audioEvent.audioType ?? 'Desconocido'}. Confianza: ${audioEvent.score ?? 'N/A'}%.`;
+  //             break;
               
-          case 'sensorWaterLeak':
-              description = '💧 ¡ALERTA! Fuga de agua detectada.';
-              break;
+  //         case 'sensorWaterLeak':
+  //             description = '💧 ¡ALERTA! Fuga de agua detectada.';
+  //             break;
               
-          case 'sensorBatteryLow':
-              const batteryEvent = event as SensorBatteryLowEvent;
-              description = `🔋 Batería baja. Nivel: ${batteryEvent.batteryLevel ?? 'N/A'}%.`;
-              break;
+  //         case 'sensorBatteryLow':
+  //             const batteryEvent = event as SensorBatteryLowEvent;
+  //             description = `🔋 Batería baja. Nivel: ${batteryEvent.batteryLevel ?? 'N/A'}%.`;
+  //             break;
 
-          default:
-              const defaultDescriptions: { [key: string]: string } = {
-                  'sensorExtremeValue': `Valor extremo detectado: ${'value' in event ? (event as SensorExtremeValueEvent).value : 'N/A'}`,
-                  'sensorTamper': 'Manipulación del sensor detectada',
-                  'sensorAlarm': `Alarma activada: ${'alarmType' in event ? (event as SensorAlarmEvent).alarmType : 'N/A'}`,
-                  'sensorOpen': 'Sensor abierto',
-                  'sensorClosed': 'Sensor cerrado',
-                  'sensorMotion': 'Movimiento detectado por sensor',
-                  'lightMotion': 'Movimiento detectado por luz'
-              };
-              description = defaultDescriptions[baseEvent.type] || `Evento desconocido: ${baseEvent.type}`;
-              break;
-      }
+  //         default:
+  //             const defaultDescriptions: { [key: string]: string } = {
+  //                 'sensorExtremeValue': `Valor extremo detectado: ${'value' in event ? (event as SensorExtremeValueEvent).value : 'N/A'}`,
+  //                 'sensorTamper': 'Manipulación del sensor detectada',
+  //                 'sensorAlarm': `Alarma activada: ${'alarmType' in event ? (event as SensorAlarmEvent).alarmType : 'N/A'}`,
+  //                 'sensorOpen': 'Sensor abierto',
+  //                 'sensorClosed': 'Sensor cerrado',
+  //                 'sensorMotion': 'Movimiento detectado por sensor',
+  //                 'lightMotion': 'Movimiento detectado por luz'
+  //             };
+  //             description = defaultDescriptions[baseEvent.type] || `Evento desconocido: ${baseEvent.type}`;
+  //             break;
+  //     }
       
-      return description;
-  }
+  //     return description;
+  // }
+  // En la clase UnifiProtectClient
+
+// Lógica de descripción enriquecida (VERSION FINAL CORREGIDA PARA TYPESCRIPT)
+private getEventDescription(event: UnifiProtectEvent): string {
+    let description = '';
+    
+    // Casteamos el evento a 'any' aquí para evitar conflictos de tipo en el switch/case
+    const smartEventData = event as any; 
+    const baseEvent = event as BaseEvent;
+    
+    switch (baseEvent.type) {
+        case 'ring':
+            description = '🔔 ¡Timbre presionado!';
+            break;
+
+        case 'cameraMotion':
+            const motionEvent = event as CameraMotionEvent;
+            const motionScore = motionEvent.score ?? 'N/A';
+            description = `Movimiento detectado por la cámara. Confianza: ${motionScore}%.`;
+            break;
+            
+        case 'cameraSmartDetectZone':
+        case 'smartDetectZone': 
+        case 'cameraSmartDetectLine':
+        case 'cameraSmartDetectLoiter':
+            
+            const score = this.getEventScore(event); 
+            let detail = '';
+
+            // 1. Manejo de SmartDetectZone
+            if (baseEvent.type === 'cameraSmartDetectZone' || baseEvent.type === 'smartDetectZone') {
+                
+                let detectedTypes = 'Detección';
+                
+                // Usamos smartEventData (que es 'any') para acceder a la propiedad
+                if (smartEventData.smartDetectTypes && smartEventData.smartDetectTypes.length > 0) {
+                    // Capitalizamos el tipo (ej. person -> Person)
+                    detectedTypes = smartEventData.smartDetectTypes.map((t: string) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
+                }
+                
+                detail = `Detección de ${detectedTypes}.`;
+
+                // Intentamos añadir la zona si existe
+                if (smartEventData.zone) {
+                    detail += ` En la Zona: ${smartEventData.zone}.`;
+                } else {
+                    detail += ` (En área de detección).`;
+                }
+
+            // 2. Manejo de SmartDetectLine
+            } else if (baseEvent.type === 'cameraSmartDetectLine') {
+                const lineEvent = event as CameraSmartDetectLineEvent;
+                detail = `Línea cruzada: ${lineEvent.line ?? 'N/A'}. Dirección: ${lineEvent.direction ?? 'N/A'}.`;
+
+            // 3. Manejo de SmartDetectLoiter
+            } else if (baseEvent.type === 'cameraSmartDetectLoiter') {
+                // Usamos smartEventData (que es 'any') para acceder a la duración
+                detail = `(Merodeo detectado por ${smartEventData.duration ?? 'N/A'} segundos).`;
+            }
+            
+            description = `🚨 Detección Inteligente ${detail} Confianza: ${score}%.`;
+            break;
+
+        case 'cameraSmartDetectAudio':
+            const audioEvent = event as CameraSmartDetectAudioEvent;
+            description = `🔊 Audio detectado: ${audioEvent.audioType ?? 'Desconocido'}. Confianza: ${audioEvent.score ?? 'N/A'}%.`;
+            break;
+            
+        case 'sensorWaterLeak':
+            description = '💧 ¡ALERTA! Fuga de agua detectada.';
+            break;
+            
+        case 'sensorBatteryLow':
+            const batteryEvent = event as SensorBatteryLowEvent;
+            description = `🔋 Batería baja. Nivel: ${batteryEvent.batteryLevel ?? 'N/A'}%.`;
+            break;
+
+        default:
+            const defaultDescriptions: { [key: string]: string } = {
+                'sensorExtremeValue': `Valor extremo detectado: ${'value' in event ? (event as SensorExtremeValueEvent).value : 'N/A'}`,
+                'sensorTamper': 'Manipulación del sensor detectada',
+                'sensorAlarm': `Alarma activada: ${'alarmType' in event ? (event as SensorAlarmEvent).alarmType : 'N/A'}`,
+                'sensorOpen': 'Sensor abierto',
+                'sensorClosed': 'Sensor cerrado',
+                'sensorMotion': 'Movimiento detectado por sensor',
+                'lightMotion': 'Movimiento detectado por luz'
+            };
+            description = defaultDescriptions[baseEvent.type] || `Evento desconocido: ${baseEvent.type}`;
+            break;
+    }
+    
+    return description;
+}
   
   private getEventThumbnail(event: UnifiProtectEvent): string | undefined {
     if ('thumbnail' in event) return event.thumbnail;
