@@ -7,6 +7,9 @@ class PopupController {
       notificationsSent: 0
     };
     
+    // Instancia de AudioContext (debe ser creada al inicio, pero manejada para el desbloqueo)
+    this.audioContext = null; 
+    
     this.recentEvents = [];
     this.maxRecentEvents = 5;
     
@@ -69,6 +72,10 @@ class PopupController {
   }
 
   setupEventListeners() {
+    // AÑADIR LISTENER CLAVE PARA DESBLOQUEAR EL AUDIO
+    // Al hacer clic en cualquier parte del body, se inicia AudioContext
+    document.body.addEventListener('click', this.unlockAudio.bind(this), { once: true });
+    
     // Botones de conexión
     document.getElementById('connectBtn').addEventListener('click', () => {
       this.connect();
@@ -100,6 +107,25 @@ class PopupController {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleBackgroundMessage(message);
     });
+  }
+
+  /**
+   * Intenta crear o reanudar el AudioContext al interactuar el usuario (para Autoplay Policy).
+   */
+  unlockAudio() {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().then(() => {
+        console.log('✅ AudioContext reanudado con éxito.');
+      }).catch(error => {
+        console.warn('⚠️ No se pudo reanudar AudioContext:', error);
+      });
+    }
+    
+    // Se elimina el listener automáticamente gracias a { once: true }
   }
 
   async connect() {
@@ -164,6 +190,7 @@ class PopupController {
 
   async toggleSound(enabled) {
     try {
+      // SOLO guarda el estado en storage (el background script lo usará para enviar el mensaje playSound)
       await chrome.storage.sync.set({ soundEnabled: enabled });
       
       this.showToast(
@@ -179,7 +206,6 @@ class PopupController {
   async testConnection() {
     try {
       const testBtn = document.getElementById('testBtn');
-      const originalText = testBtn.innerHTML;
       
       testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
       testBtn.disabled = true;
@@ -249,9 +275,6 @@ class PopupController {
     document.getElementById('notificationsSent').textContent = this.stats.notificationsSent;
   }
 
-  /**
-   * ACTUALIZACIÓN CLAVE: Muestra la descripción y gravedad del evento.
-   */
   updateRecentEvents() {
     const eventsList = document.getElementById('eventsList');
     
@@ -300,9 +323,6 @@ class PopupController {
     return labels[eventType.toLowerCase()] || eventType;
   }
 
-  /**
-   * FUNCIÓN NUEVA: Retorna un ícono basado en la gravedad (severity) del evento.
-   */
   getSeverityIcon(severity) {
     switch (severity.toUpperCase()) {
       case 'CRITICAL':
@@ -362,6 +382,109 @@ class PopupController {
     this.updateStats();
   }
 
+  /**
+   * Genera y reproduce un simple tono (beep) usando el Web Audio API.
+   */
+  // playGenericBeep() {
+  //   try {
+  //     console.log("Pasa por aquí")
+  //     // Si el audioContext no se ha inicializado o está suspendido, no sonará.
+  //     if (!this.audioContext || this.audioContext.state === 'suspended') {
+  //        console.warn('AudioContext no está activo. El beep no sonará. El usuario debe hacer clic primero.');
+  //        return;
+  //     }
+      
+  //     const audioContext = this.audioContext;
+      
+  //     // 2. Crear un oscilador (generador de tono)
+  //     const oscillator = audioContext.createOscillator();
+      
+  //     // 3. Crear un nodo de ganancia (volumen)
+  //     const gainNode = audioContext.createGain();
+      
+  //     // Conectar los nodos: Oscilador -> Ganancia -> Destino (altavoces)
+  //     oscillator.connect(gainNode);
+  //     gainNode.connect(audioContext.destination);
+      
+  //     // Configuración del tono
+  //     oscillator.type = 'sine'; // Tipo de onda (seno para un tono limpio)
+  //     oscillator.frequency.setValueAtTime(500, audioContext.currentTime); // 500 Hz
+      
+  //     // Configuración del volumen (evita que sea muy ruidoso)
+  //     gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      
+  //     // Configuración de la duración del tono (0.2 segundos)
+  //     oscillator.start(audioContext.currentTime);
+  //     oscillator.stop(audioContext.currentTime + 0.2); 
+      
+  //     console.log('🔊 Beep genérico reproducido.');
+      
+  //   } catch (error) {
+  //     console.error('❌ Error reproduciendo el beep:', error);
+  //   }
+  // }
+  /**
+   * Genera y reproduce un simple tono (beep) usando el Web Audio API.
+   * Mejora: Se asegura de que el AudioContext esté activo.
+   */
+  playGenericBeep() {
+    try {
+      console.log("Pasa por aquí: Intentando reproducir beep.");
+      
+      // 1. Asegurar que el AudioContext existe
+      if (!this.audioContext) {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // 2. Intentar reanudar el contexto (CRUCIAL para Autoplay Policy)
+      // Esto intenta arreglarlo si se llamó sin un clic reciente.
+      if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume().then(() => {
+              console.log('✅ AudioContext reanudado al intentar sonar.');
+              // Llama a la reproducción nuevamente después de reanudar
+              this._generateTone(this.audioContext);
+          }).catch(error => {
+              console.warn('⚠️ No se pudo reanudar AudioContext antes de sonar:', error);
+          });
+          return; // Sale de esta llamada, la reproducción ocurrirá en el .then()
+      }
+      
+      // Si ya está 'running', genera el tono inmediatamente
+      this._generateTone(this.audioContext);
+      
+    } catch (error) {
+      console.error('❌ Error general al intentar reproducir el beep:', error);
+    }
+  }
+
+  /**
+   * Sub-función interna para generar el tono real.
+   */
+  _generateTone(audioContext) {
+      // 2. Crear un oscilador (generador de tono)
+      const oscillator = audioContext.createOscillator();
+      
+      // 3. Crear un nodo de ganancia (volumen)
+      const gainNode = audioContext.createGain();
+      
+      // Conectar los nodos: Oscilador -> Ganancia -> Destino (altavoces)
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Configuración del tono
+      oscillator.type = 'sine'; // Tipo de onda (seno para un tono limpio)
+      oscillator.frequency.setValueAtTime(500, audioContext.currentTime); // 500 Hz
+      
+      // Configuración del volumen (evita que sea muy ruidoso)
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      
+      // Configuración de la duración del tono (0.2 segundos)
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2); 
+      
+      console.log('🔊 Beep genérico reproducido.');
+  }
+
   handleBackgroundMessage(message) {
     switch (message.type) {
       case 'unifiEvent':
@@ -371,6 +494,11 @@ class PopupController {
         
       case 'status':
         this.updateConnectionStatus(message.data);
+        break;
+        
+      case 'playSound':
+        // El background script nos pidió que reproduzcamos el sonido
+        this.playGenericBeep(); 
         break;
         
       default:
