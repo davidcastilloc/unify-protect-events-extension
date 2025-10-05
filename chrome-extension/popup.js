@@ -1,4 +1,4 @@
-// Script para el popup de la extensión UniFi Protect
+// Script for the UniFi Protect extension popup
 class PopupController {
   constructor() {
     this.stats = {
@@ -14,62 +14,62 @@ class PopupController {
   }
 
   async init() {
-    console.log('🚀 Inicializando popup');
+    console.log('🚀 Initializing popup');
     
-    // Cargar estado inicial
+    // Load initial state
     await this.loadInitialState();
     
-    // Configurar event listeners
+    // Configure event listeners
     this.setupEventListeners();
     
-    // Actualizar UI
+    // Update UI
     this.updateUI();
     
-    // Iniciar actualizaciones periódicas
+    // Start periodic updates
     this.startPeriodicUpdates();
   }
 
   async loadInitialState() {
     try {
-      // Obtener estado del background script
+      // Get state from background script
       const response = await this.sendMessage({ type: 'getStatus' });
       
       if (response) {
         this.updateConnectionStatus(response);
       }
       
-      // Cargar configuración guardada
+      // Load saved configuration
       const settings = await chrome.storage.sync.get([
         'notificationsEnabled',
         'soundEnabled',
         'eventFilters'
       ]);
       
-      // Actualizar toggles
+      // Update toggles
       document.getElementById('notificationsToggle').checked = 
         settings.notificationsEnabled !== false;
       document.getElementById('soundToggle').checked = 
         settings.soundEnabled !== false;
       
-      // Cargar estadísticas
+      // Load statistics
       const savedStats = await chrome.storage.local.get(['stats']);
       if (savedStats.stats) {
         this.stats = { ...this.stats, ...savedStats.stats };
       }
       
-      // Cargar eventos recientes
+      // Load recent events
       const savedEvents = await chrome.storage.local.get(['recentEvents']);
       if (savedEvents.recentEvents) {
         this.recentEvents = savedEvents.recentEvents;
       }
       
     } catch (error) {
-      console.error('❌ Error cargando estado inicial:', error);
+      console.error('❌ Error loading initial state:', error);
     }
   }
 
   setupEventListeners() {
-    // Botones de conexión
+    // Connection buttons
     document.getElementById('connectBtn').addEventListener('click', () => {
       this.connect();
     });
@@ -96,7 +96,7 @@ class PopupController {
       this.testConnection();
     });
     
-    // Listener para mensajes del background script
+    // Listener for messages from background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleBackgroundMessage(message);
     });
@@ -113,14 +113,14 @@ class PopupController {
       
       if (response && response.success) {
         this.updateConnectionStatus({ isConnected: true });
-        this.showToast('Conectado exitosamente', 'success');
+        this.showToast('Connected successfully', 'success');
       } else {
-        this.showToast('Error al conectar', 'error');
+        this.showToast('Error connecting', 'error');
       }
       
     } catch (error) {
       console.error('❌ Error conectando:', error);
-      this.showToast('Error al conectar: ' + error.message, 'error');
+      this.showToast('Error connecting: ' + error.message, 'error');
     } finally {
       const connectBtn = document.getElementById('connectBtn');
       connectBtn.disabled = false;
@@ -134,12 +134,12 @@ class PopupController {
       
       if (response && response.success) {
         this.updateConnectionStatus({ isConnected: false });
-        this.showToast('Desconectado', 'info');
+        this.showToast('Disconnected', 'info');
       }
       
     } catch (error) {
       console.error('❌ Error desconectando:', error);
-      this.showToast('Error al desconectar', 'error');
+      this.showToast('Error disconnecting', 'error');
     }
   }
 
@@ -158,7 +158,7 @@ class PopupController {
       );
       
     } catch (error) {
-      console.error('❌ Error actualizando notificaciones:', error);
+      console.error('❌ Error updating notifications:', error);
     }
   }
 
@@ -172,7 +172,7 @@ class PopupController {
       );
       
     } catch (error) {
-      console.error('❌ Error actualizando sonido:', error);
+      console.error('❌ Error updating sound:', error);
     }
   }
 
@@ -181,7 +181,7 @@ class PopupController {
       const testBtn = document.getElementById('testBtn');
       const originalText = testBtn.innerHTML;
       
-      testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
+      testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
       testBtn.disabled = true;
       
       // Simular prueba de conexión
@@ -192,12 +192,12 @@ class PopupController {
       if (response && response.isConnected) {
         this.showToast('Connection successful', 'success');
       } else {
-        this.showToast('Sin conexión', 'warning');
+        this.showToast('No connection', 'warning');
       }
       
     } catch (error) {
       console.error('❌ Error probando conexión:', error);
-      this.showToast('Error en la prueba', 'error');
+      this.showToast('Test error', 'error');
     } finally {
       const testBtn = document.getElementById('testBtn');
       testBtn.innerHTML = '<span class="btn-icon">🧪</span> Test Connection';
@@ -216,14 +216,14 @@ class PopupController {
     
     if (status.isConnected) {
       statusDot.className = 'status-dot connected';
-      statusText.textContent = 'Conectado';
-      connectionStatus.textContent = 'Conectado';
+      statusText.textContent = 'Connected';
+      connectionStatus.textContent = 'Connected';
       connectBtn.disabled = true;
       disconnectBtn.disabled = false;
     } else {
       statusDot.className = 'status-dot';
-      statusText.textContent = 'Desconectado';
-      connectionStatus.textContent = 'Desconectado';
+      statusText.textContent = 'Disconnected';
+      connectionStatus.textContent = 'Disconnected';
       connectBtn.disabled = false;
       disconnectBtn.disabled = true;
     }
@@ -283,14 +283,14 @@ class PopupController {
   updateLastUpdate() {
     const lastUpdate = document.getElementById('lastUpdate');
     const now = new Date();
-    lastUpdate.textContent = now.toLocaleTimeString('es-ES');
+    lastUpdate.textContent = now.toLocaleTimeString('en-US');
   }
 
   getEventTypeLabel(eventType) {
     const labels = {
       'motion': 'Movimiento',
       'person': 'Persona',
-      'vehicle': 'Vehículo',
+      'vehicle': 'Vehicle',
       'package': 'Paquete',
       'doorbell': 'Timbre',
       'smart_detect': 'Smart Detect',
@@ -324,7 +324,7 @@ class PopupController {
     const diff = now - date;
     
     if (diff < 60000) { // Menos de 1 minuto
-      return 'Ahora';
+      return 'Now';
     } else if (diff < 3600000) { // Menos de 1 hora
       const minutes = Math.floor(diff / 60000);
       return `${minutes}m`;
@@ -339,15 +339,15 @@ class PopupController {
   addRecentEvent(event) {
     this.recentEvents.unshift(event);
     
-    // Mantener solo los eventos más recientes
+    // Keep only the most recent events
     if (this.recentEvents.length > this.maxRecentEvents) {
       this.recentEvents = this.recentEvents.slice(0, this.maxRecentEvents);
     }
     
-    // Guardar en storage
+    // Save to storage
     chrome.storage.local.set({ recentEvents: this.recentEvents });
     
-    // Actualizar UI
+    // Update UI
     this.updateRecentEvents();
   }
 
@@ -355,10 +355,10 @@ class PopupController {
     this.stats.totalEvents++;
     this.stats.notificationsSent++;
     
-    // Guardar en storage
+    // Save to storage
     chrome.storage.local.set({ stats: this.stats });
     
-    // Actualizar UI
+    // Update UI
     this.updateStats();
   }
 
@@ -374,12 +374,12 @@ class PopupController {
         break;
         
       default:
-        console.log('Mensaje no manejado:', message);
+        console.log('Unhandled message:', message);
     }
   }
 
   startPeriodicUpdates() {
-    // Actualizar estado cada 5 segundos
+    // Update state every 5 seconds
     setInterval(async () => {
       try {
         const response = await this.sendMessage({ type: 'getStatus' });
@@ -387,7 +387,7 @@ class PopupController {
           this.updateConnectionStatus(response);
         }
       } catch (error) {
-        console.error('❌ Error actualizando estado:', error);
+        console.error('❌ Error updating state:', error);
       }
     }, 5000);
   }
@@ -405,7 +405,7 @@ class PopupController {
   }
 
   showToast(message, type = 'info') {
-    // Crear toast temporal
+    // Create temporary toast
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
@@ -425,12 +425,12 @@ class PopupController {
     
     document.body.appendChild(toast);
     
-    // Animar entrada
+    // Animate entrance
     setTimeout(() => {
       toast.style.opacity = '1';
     }, 10);
     
-    // Remover después de 3 segundos
+    // Remove after 3 seconds
     setTimeout(() => {
       toast.style.opacity = '0';
       setTimeout(() => {

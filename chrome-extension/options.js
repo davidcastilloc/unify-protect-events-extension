@@ -1,4 +1,4 @@
-// Script para la página de opciones de la extensión UniFi Protect
+// Script for the UniFi Protect extension options page
 class OptionsController {
   constructor() {
     this.defaultSettings = {
@@ -36,18 +36,18 @@ class OptionsController {
   }
 
   async init() {
-    console.log('🚀 Inicializando página de opciones');
+    console.log('🚀 Initializing options page');
     
-    // Cargar configuración guardada
+    // Load saved configuration
     await this.loadSettings();
     
-    // Configurar event listeners
+    // Configure event listeners
     this.setupEventListeners();
     
-    // Cargar cámaras disponibles
+    // Load available cameras
     await this.loadCameras();
     
-    // Actualizar UI
+    // Update UI
     this.updateUI();
   }
 
@@ -55,7 +55,7 @@ class OptionsController {
     try {
       const settings = await chrome.storage.sync.get(Object.keys(this.defaultSettings));
       
-      // Aplicar configuración cargada o usar valores por defecto
+      // Apply loaded configuration or use default values
       Object.keys(this.defaultSettings).forEach(key => {
         if (settings[key] !== undefined) {
           this.defaultSettings[key] = settings[key];
@@ -65,8 +65,8 @@ class OptionsController {
       console.log('⚙️ Configuration loaded:', this.defaultSettings);
       
     } catch (error) {
-      console.error('❌ Error cargando configuración:', error);
-      this.showToast('Error cargando configuración', 'error');
+      console.error('❌ Error loading configuration:', error);
+      this.showToast('Error loading configuration', 'error');
     }
   }
 
@@ -112,7 +112,7 @@ class OptionsController {
       this.showFeedback();
     });
     
-    // File input para importar
+    // File input for importing
     document.getElementById('importFileInput').addEventListener('change', (e) => {
       this.handleImportFile(e.target.files[0]);
     });
@@ -122,12 +122,12 @@ class OptionsController {
   }
 
   setupAutoSave() {
-    // Auto-guardar cuando cambien los valores
+    // Auto-save when values change
     const inputs = document.querySelectorAll('input, select');
     inputs.forEach(input => {
       input.addEventListener('change', () => {
         this.debounce(() => {
-          this.saveSettings(false); // false = no mostrar toast
+          this.saveSettings(false); // false = don't show toast
         }, 1000)();
       });
     });
@@ -192,18 +192,18 @@ class OptionsController {
         const cameras = await response.json();
         this.populateCameraSelect(cameras);
       } else {
-        this.addTestResult('No se pudieron cargar las cámaras del servidor', 'error');
+        this.addTestResult('Could not load cameras from server', 'error');
       }
       
     } catch (error) {
-      console.error('❌ Error cargando cámaras:', error);
-      this.addTestResult('Error conectando al servidor para obtener cámaras', 'error');
+      console.error('❌ Error loading cameras:', error);
+      this.addTestResult('Error connecting to server to get cameras', 'error');
     }
   }
 
   populateCameraSelect(cameras) {
     const select = document.getElementById('cameraFilter');
-    select.innerHTML = '<option value="">Todas las cámaras</option>';
+    select.innerHTML = '<option value="">All cameras</option>';
     
     cameras.forEach(camera => {
       const option = document.createElement('option');
@@ -220,7 +220,7 @@ class OptionsController {
       
       await chrome.storage.sync.set(settings);
       
-      // Enviar configuración actualizada al background script
+      // Send updated configuration to background script
       await this.sendMessageToBackground({
         type: 'updateSettings',
         settings: settings
@@ -233,8 +233,8 @@ class OptionsController {
       console.log('💾 Configuration saved:', settings);
       
     } catch (error) {
-      console.error('❌ Error guardando configuración:', error);
-      this.showToast('Error guardando configuración', 'error');
+      console.error('❌ Error saving configuration:', error);
+      this.showToast('Error saving configuration', 'error');
     }
   }
 
@@ -276,15 +276,15 @@ class OptionsController {
   }
 
   async resetSettings() {
-    if (confirm('¿Estás seguro de que quieres restaurar todos los valores por defecto?')) {
+    if (confirm('Are you sure you want to restore all default values?')) {
       try {
         await chrome.storage.sync.clear();
         this.defaultSettings = { ...this.defaultSettings };
         this.updateUI();
         this.showToast('Configuration restored to default values', 'info');
       } catch (error) {
-        console.error('❌ Error restaurando configuración:', error);
-        this.showToast('Error restaurando configuración', 'error');
+        console.error('❌ Error restoring configuration:', error);
+        this.showToast('Error restoring configuration', 'error');
       }
     }
   }
@@ -293,7 +293,7 @@ class OptionsController {
     const testBtn = document.getElementById('testConnectionBtn');
     const originalText = testBtn.innerHTML;
     
-    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
+    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
     testBtn.disabled = true;
     
     try {
@@ -320,25 +320,25 @@ class OptionsController {
       await chrome.notifications.create('test-notification', {
         type: 'basic',
         iconUrl: 'icons/icon48.png',
-        title: 'Prueba de Notificación',
-        message: 'Esta es una notificación de prueba de UniFi Protect',
+        title: 'Test Notification',
+        message: 'This is a test notification from UniFi Protect',
         priority: 1
       });
       
-      this.addTestResult('✅ Notificación de prueba enviada', 'success');
+      this.addTestResult('✅ Test notification sent', 'success');
       
     } catch (error) {
-      this.addTestResult(`❌ Error enviando notificación: ${error.message}`, 'error');
+      this.addTestResult(`❌ Error sending notification: ${error.message}`, 'error');
     }
   }
 
   async clearHistory() {
-    if (confirm('¿Estás seguro de que quieres limpiar todo el historial de eventos?')) {
+    if (confirm('Are you sure you want to clear all event history?')) {
       try {
         await chrome.storage.local.remove(['recentEvents', 'stats']);
-        this.addTestResult('✅ Historial limpiado exitosamente', 'success');
+        this.addTestResult('✅ History cleared successfully', 'success');
       } catch (error) {
-        this.addTestResult(`❌ Error limpiando historial: ${error.message}`, 'error');
+        this.addTestResult(`❌ Error clearing history: ${error.message}`, 'error');
       }
     }
   }
@@ -362,7 +362,7 @@ class OptionsController {
       this.addTestResult('✅ Configuration exported successfully', 'success');
       
     } catch (error) {
-      this.addTestResult(`❌ Error exportando configuración: ${error.message}`, 'error');
+      this.addTestResult(`❌ Error exporting configuration: ${error.message}`, 'error');
     }
   }
 
@@ -377,27 +377,27 @@ class OptionsController {
       const text = await file.text();
       const config = JSON.parse(text);
       
-      // Validar configuración
+      // Validate configuration
       if (this.validateConfig(config)) {
-        // Aplicar configuración
+        // Apply configuration
         Object.assign(this.defaultSettings, config);
         this.updateUI();
         
-        // Guardar configuración
+        // Save configuration
         await chrome.storage.sync.set(config);
         
         this.addTestResult('✅ Configuration imported successfully', 'success');
       } else {
-        this.addTestResult('❌ Archivo de configuración inválido', 'error');
+        this.addTestResult('❌ Invalid configuration file', 'error');
       }
       
     } catch (error) {
-      this.addTestResult(`❌ Error importando configuración: ${error.message}`, 'error');
+      this.addTestResult(`❌ Error importing configuration: ${error.message}`, 'error');
     }
   }
 
   validateConfig(config) {
-    // Validaciones básicas
+    // Basic validations
     const requiredFields = ['serverUrl', 'notificationsEnabled', 'soundEnabled'];
     
     for (const field of requiredFields) {
@@ -406,7 +406,7 @@ class OptionsController {
       }
     }
     
-    // Validar URL del servidor
+    // Validate server URL
     try {
       new URL(config.serverUrl);
     } catch {
@@ -418,36 +418,36 @@ class OptionsController {
 
   showHelp() {
     const helpContent = `
-      <h3>Ayuda - UniFi Protect Notifications</h3>
+      <h3>Help - UniFi Protect Notifications</h3>
       <h4>Server Configuration:</h4>
-      <p>Ingresa la URL completa de tu servidor UniFi Protect (ej: http://192.168.1.100:3001)</p>
+      <p>Enter the complete URL of your UniFi Protect server (e.g.: http://192.168.1.100:3001)</p>
       
       <h4>Event Filters:</h4>
-      <p>Selecciona qué tipos de eventos quieres recibir. Puedes filtrar por tipo de evento, severidad y cámaras específicas.</p>
+      <p>Select which types of events you want to receive. You can filter by event type, severity and specific cameras.</p>
       
       <h4>Notifications:</h4>
-      <p>Las notificaciones aparecerán en tu sistema operativo cuando se detecten eventos según tus filtros configurados.</p>
+      <p>Notifications will appear on your operating system when events are detected according to your configured filters.</p>
       
-      <h4>Solución de Problemas:</h4>
-      <p>Si no recibes notificaciones, verifica que el servidor esté ejecutándose y que la URL sea correcta.</p>
+      <h4>Troubleshooting:</h4>
+      <p>If you don't receive notifications, verify that the server is running and that the URL is correct.</p>
     `;
     
-    this.showModal('Ayuda', helpContent);
+    this.showModal('Help', helpContent);
   }
 
   showFeedback() {
     const feedbackContent = `
-      <h3>Enviar Feedback</h3>
-      <p>¿Tienes sugerencias o encontraste un problema?</p>
-      <p>Envía un email a: <a href="mailto:feedback@example.com">feedback@example.com</a></p>
-      <p>O crea un issue en el repositorio del proyecto.</p>
+      <h3>Send Feedback</h3>
+      <p>Do you have suggestions or found a problem?</p>
+      <p>Send an email to: <a href="mailto:feedback@example.com">feedback@example.com</a></p>
+      <p>Or create an issue in the project repository.</p>
     `;
     
     this.showModal('Feedback', feedbackContent);
   }
 
   showModal(title, content) {
-    // Crear modal simple
+    // Create simple modal
     const modal = document.createElement('div');
     modal.style.cssText = `
       position: fixed;
@@ -477,7 +477,7 @@ class OptionsController {
       <div style="margin-top: 16px;">${content}</div>
       <button onclick="this.closest('.modal').remove()" 
               style="margin-top: 16px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
-        Cerrar
+        Close
       </button>
     `;
     
@@ -485,7 +485,7 @@ class OptionsController {
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
     
-    // Cerrar al hacer click fuera del modal
+    // Close when clicking outside the modal
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.remove();
@@ -504,7 +504,7 @@ class OptionsController {
     
     resultsContainer.appendChild(result);
     
-    // Auto-remover después de 10 segundos
+    // Auto-remove after 10 seconds
     setTimeout(() => {
       if (result.parentNode) {
         result.parentNode.removeChild(result);
@@ -524,7 +524,7 @@ class OptionsController {
       toast.classList.add('show');
     }, 10);
     
-    // Remover después de 3 segundos
+    // Remove after 3 seconds
     setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => {

@@ -1,4 +1,4 @@
-// Background script para la extensión de UniFi Protect
+// Background script for the UniFi Protect extension
 /**
  * TIPOS DE EVENTOS UNIFI (desde UnifiProtectClient.ts):
  * - 'motion': Motion detected (camera, sensor, light)
@@ -34,26 +34,26 @@ class UnifiProtectExtension {
     this.clientId = this.generateClientId();
     this.token = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = Infinity; // Intentar reconectar siempre
+    this.maxReconnectAttempts = Infinity; // Always try to reconnect
     this.reconnectDelay = 5000;
-    this.connectionEnabled = true; // Por defecto, mantener conexión activa
+    this.connectionEnabled = true; // By default, keep connection active
     
     this.init();
   }
 
   async init() {
-    console.log('🚀 Iniciando extensión UniFi Protect (Service Worker)');
+    console.log('🚀 Starting UniFi Protect extension (Service Worker)');
     
-    // Cargar configuración guardada
+    // Load saved configuration
     await this.loadSettings();
     
-    // Configurar listeners de eventos
+    // Configure event listeners
     this.setupEventListeners();
     
-    // Configurar alarmas para mantener service worker activo
+    // Configure alarms to keep service worker active
     this.setupKeepAlive();
     
-    // Iniciar heartbeat para mantener conexión WebSocket
+    // Start heartbeat to maintain WebSocket connection
     this.startHeartbeat();
     
     // Connect automatically if it was connected before
@@ -98,7 +98,7 @@ class UnifiProtectExtension {
         connectionEnabled: this.connectionEnabled
       });
     } catch (error) {
-      console.error('❌ Error cargando configuración:', error);
+      console.error('❌ Error loading configuration:', error);
     }
   }
 
@@ -111,7 +111,7 @@ class UnifiProtectExtension {
 
     // Listener para cuando se instala la extensión
     chrome.runtime.onInstalled.addListener(() => {
-      console.log('📦 Extensión instalada');
+      console.log('📦 Extension installed');
       this.showWelcomeNotification();
     });
 
@@ -204,7 +204,7 @@ class UnifiProtectExtension {
       
       // Verificar si el servidor está disponible antes de obtener token
       if (!await this.isServerAvailable()) {
-        throw new Error('El servidor no está disponible');
+        throw new Error('Server is not available');
       }
       
       // Obtener token de autenticación solo si es necesario
@@ -212,7 +212,7 @@ class UnifiProtectExtension {
         await this.getAuthToken();
         
         if (!this.token) {
-          throw new Error('No se pudo obtener token de autenticación');
+          throw new Error('Could not obtain authentication token');
         }
       }
 
@@ -247,7 +247,7 @@ class UnifiProtectExtension {
 
   async getAuthToken() {
     try {
-      console.log('🔑 Obteniendo token de autenticación...');
+      console.log('🔑 Obtaining authentication token...');
       
       const response = await fetch(`${this.serverUrl}/auth/token`, {
         method: 'POST',
@@ -282,9 +282,9 @@ class UnifiProtectExtension {
         // Configurar timeout de conexión
         const connectionTimeout = setTimeout(() => {
           if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-            console.log('⏰ Timeout de conexión WebSocket');
+            console.log('⏰ WebSocket connection timeout');
             this.ws.close();
-            reject(new Error('Timeout de conexión WebSocket'));
+            reject(new Error('WebSocket connection timeout'));
           }
         }, 10000); // 10 segundos de timeout
         
@@ -295,7 +295,7 @@ class UnifiProtectExtension {
           this.reconnectAttempts = 0;
           this.updateBadge('ON', '#4CAF50');
           
-          // Enviar filtros al servidor
+          // Send filters to server
           this.sendFiltersToServer();
           
           resolve();
@@ -311,7 +311,7 @@ class UnifiProtectExtension {
           this.isConnected = false;
           this.updateBadge('OFF', '#F44336');
           
-          // Intentar reconectar si no fue un cierre intencional
+          // Try to reconnect if it was not an intentional closure
           if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
             this.scheduleReconnect();
           }
@@ -332,15 +332,15 @@ class UnifiProtectExtension {
   handleWebSocketMessage(event) {
     try {
       const message = JSON.parse(event.data);
-      console.log('📨 Mensaje recibido:', message);
+      console.log('📨 Message received:', message);
 
-      // Lista de tipos de eventos válidos de UniFi
+      // List of valid UniFi event types
       const validEventTypes = ['motion', 'person', 'vehicle', 'package', 'doorbell', 'smart_detect', 'sensor'];
 
       switch (message.type) {
         case 'connected':
-          console.log('✅ Conectado al servidor');
-          // No procesar 'connected' como evento, solo logging
+          console.log('✅ Connected to server');
+          // Don't process 'connected' as event, just logging
           break;
 
         case 'event':
@@ -348,8 +348,8 @@ class UnifiProtectExtension {
           break;
 
         case 'pong':
-          console.log('🏓 Pong recibido');
-          // No procesar 'pong' como evento, solo logging
+          console.log('🏓 Pong received');
+          // Don't process 'pong' as event, just logging
           break;
 
         case 'motion':
@@ -360,34 +360,34 @@ class UnifiProtectExtension {
         case 'smart_detect':
         case 'sensor':
           // Simple format events coming directly from backend
-          console.log('📦 Evento en formato simple recibido:', message.type);
+          console.log('📦 Simple format event received:', message.type);
           this.handleUnifiEvent(message);
           break;
 
         default:
-          console.log('❓ Tipo de mensaje desconocido:', message.type);
+          console.log('❓ Unknown message type:', message.type);
       }
     } catch (error) {
-      console.error('❌ Error procesando mensaje WebSocket:', error);
+      console.error('❌ Error processing WebSocket message:', error);
     }
   }
 
   handleUnifiEvent(event) {
-    console.log('🎯 Evento UniFi recibido:', event);
+    console.log('🎯 UniFi event received:', event);
     
-    // Normalizar el evento para asegurarnos de que tenga el formato correcto
+    // Normalize the event to ensure it has the correct format
     const normalizedEvent = this.normalizeEvent(event);
-    console.log('✅ Evento normalizado:', normalizedEvent);
+    console.log('✅ Event normalized:', normalizedEvent);
     
-    // Verificar si debemos mostrar notificación
+    // Check if we should show notification
     if (this.shouldShowNotification(normalizedEvent)) {
       this.showNotification(normalizedEvent);
     }
     
-    // Enviar el evento a content scripts para popup flotante
+    // Send the event to content scripts for floating popup
     this.sendEventToContentScript(normalizedEvent);
     
-    // También enviar el evento a cualquier ventana abierta del popup
+    // Also send the event to any open popup window
     this.broadcastEventToPopup(normalizedEvent);
   }
 
@@ -398,12 +398,12 @@ class UnifiProtectExtension {
       ? event.timestamp 
       : new Date(event.timestamp);
     
-    // Verificar si es un evento en formato simple (nuevo formato)
-    // En formato simple, los campos adicionales están en metadata
+    // Check if it is a simple format event (new format)
+    // In simple format, additional fields are in metadata
     const isSimpleFormat = !event.id && event.metadata;
     
     if (isSimpleFormat) {
-      // Formato simple: extraer datos de metadata
+      // Simple format: extract data from metadata
       return {
         id: event.metadata.id || `event-${Date.now()}`,
         type: event.type,
@@ -415,12 +415,12 @@ class UnifiProtectExtension {
           type: event.metadata.cameraType || 'unknown',
           location: event.metadata.cameraLocation
         },
-        description: event.metadata.description || `Evento ${event.type} detectado`,
+        description: event.metadata.description || `${event.type} event detected`,
         thumbnailUrl: event.metadata.thumbnailUrl,
         metadata: event.metadata || {}
       };
     } else {
-      // Formato completo (legacy o eventos viejos)
+      // Full format (legacy or old events)
       return {
         id: event.id || `event-${Date.now()}`,
         type: event.type,
@@ -432,7 +432,7 @@ class UnifiProtectExtension {
           type: event.camera.type || 'unknown',
           location: event.camera.location
         },
-        description: event.description || `Evento ${event.type} detectado`,
+        description: event.description || `${event.type} event detected`,
         thumbnailUrl: event.thumbnailUrl,
         metadata: event.metadata || {}
       };
@@ -446,22 +446,22 @@ class UnifiProtectExtension {
 
     const filters = this.eventFilters;
     
-    // Verificar si las notificaciones están habilitadas
+    // Check if notifications are enabled
     if (!filters.enabled) {
       return false;
     }
 
-    // Verificar tipo de evento
+    // Check event type
     if (filters.types && filters.types.length > 0 && !filters.types.includes(event.type)) {
       return false;
     }
 
-    // Verificar severidad
+    // Check severity
     if (filters.severity && filters.severity.length > 0 && !filters.severity.includes(event.severity)) {
       return false;
     }
 
-    // Verificar cámaras específicas
+    // Check specific cameras
     if (filters.cameras && filters.cameras.length > 0 && !filters.cameras.includes(event.camera.id)) {
       return false;
     }
@@ -477,7 +477,7 @@ class UnifiProtectExtension {
       
       const notificationId = `unifi-event-${event.id}`;
       
-      // Mostrar notificación del sistema
+      // Show system notification
       await chrome.notifications.create(notificationId, {
         type: 'basic',
         iconUrl: iconUrl,
@@ -488,7 +488,7 @@ class UnifiProtectExtension {
         requireInteraction: event.severity === 'critical'
       });
 
-      // Enviar evento al content script para mostrar popup flotante
+      // Send event to content script to show floating popup
       this.sendEventToContentScript(event);
 
       // Audio is now handled by HTML5 audio in popups for 100% reliability
@@ -533,49 +533,49 @@ class UnifiProtectExtension {
   }
 
   getEventTitle(event) {
-    // Títulos base para cada tipo
+    // Base titles for each type
     const titleMap = {
       'motion': 'Movimiento Detectado',
       'person': 'Persona Detectada',
-      'vehicle': 'Vehículo Detectado',
+      'vehicle': 'Vehicle Detected',
       'package': 'Paquete Detectado',
       'doorbell': 'Timbre Presionado',
-      'smart_detect': 'Detección Inteligente',
+      'smart_detect': 'Smart Detection',
       'sensor': 'Evento de Sensor'
     };
     
     let title = titleMap[event.type] || 'Evento UniFi';
     
-    // Agregar contexto adicional según los metadatos
+    // Add additional context based on metadata
     if (event.metadata) {
-      // Para smart detect, especificar el tipo
+      // For smart detect, specify the type
       if (event.type === 'smart_detect') {
         if (event.metadata.audioType) {
           title = `Audio: ${event.metadata.audioType}`;
         } else if (event.metadata.zone) {
-          title = 'Detección en Zona';
+          title = 'Zone Detection';
         } else if (event.metadata.line) {
-          title = 'Línea Cruzada';
+          title = 'Line Crossed';
         } else if (event.metadata.duration) {
           title = 'Merodeo Detectado';
         }
       }
       
-      // Para sensores, especificar el subtipo
+      // For sensors, specify the subtype
       if (event.type === 'sensor') {
         if (event.metadata.batteryLevel !== undefined) {
-          title = 'Batería Baja';
+          title = 'Low Battery';
         } else if (event.metadata.alarmType) {
           title = 'Alarma Activada';
-        } else if (event.description.includes('agua')) {
-          title = 'Fuga de Agua';
-        } else if (event.description.includes('manipulación')) {
-          title = 'Sensor Manipulado';
+        } else if (event.description.includes('water')) {
+          title = 'Water Leak';
+        } else if (event.description.includes('manipulation')) {
+          title = 'Sensor Tampered';
         }
       }
     }
     
-    // Agregar indicador de severidad para eventos críticos
+    // Add severity indicator for critical events
     if (event.severity === 'critical') {
       title = '🚨 ' + title;
     } else if (event.severity === 'high') {
@@ -586,8 +586,8 @@ class UnifiProtectExtension {
   }
 
   getEventMessage(event) {
-    // El timestamp ya está normalizado como Date object
-    const timestamp = event.timestamp.toLocaleString('es-ES', {
+    // The timestamp is already normalized as Date object
+    const timestamp = event.timestamp.toLocaleString('en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -598,27 +598,27 @@ class UnifiProtectExtension {
     
     let message = event.description;
     
-    // Agregar información adicional según el tipo de evento
+    // Add additional information based on event type
     if (event.metadata) {
       if (event.metadata.score) {
-        message += `\nConfianza: ${Math.round(event.metadata.score)}%`;
+        message += `\nConfidence: ${Math.round(event.metadata.score)}%`;
       }
       if (event.metadata.audioType) {
-        message += `\nTipo de audio: ${event.metadata.audioType}`;
+        message += `\nAudio type: ${event.metadata.audioType}`;
       }
       if (event.metadata.zone) {
-        message += `\nZona: ${event.metadata.zone}`;
+        message += `\nZone: ${event.metadata.zone}`;
       }
       if (event.metadata.batteryLevel !== undefined) {
-        message += `\nBatería: ${event.metadata.batteryLevel}%`;
+        message += `\nBattery: ${event.metadata.batteryLevel}%`;
       }
     }
     
-    message += `\n\nCámara: ${event.camera.name}`;
+    message += `\n\nCamera: ${event.camera.name}`;
     if (event.camera.location) {
-      message += `\nUbicación: ${event.camera.location}`;
+      message += `\nLocation: ${event.camera.location}`;
     }
-    message += `\nHora: ${timestamp}`;
+    message += `\nTime: ${timestamp}`;
     
     return message;
   }
@@ -720,41 +720,41 @@ class UnifiProtectExtension {
       return cameras;
       
     } catch (error) {
-      console.error('❌ Error obteniendo cámaras:', error);
+      console.error('❌ Error getting cameras:', error);
       return [];
     }
   }
 
   scheduleReconnect() {
-    // Solo reconectar si la conexión está habilitada
+    // Only reconnect if connection is enabled
     if (!this.connectionEnabled) {
-      console.log('🚫 Reconexión deshabilitada por el usuario');
+      console.log('🚫 Reconnection disabled by user');
       return;
     }
     
     this.reconnectAttempts++;
     
-    // Backoff exponencial con límite máximo
+    // Exponential backoff with maximum limit
     const delay = Math.min(
       this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
-      60000 // Máximo 60 segundos
+      60000 // Maximum 60 seconds
     );
     
-    console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts})`);
+    console.log(`🔄 Retrying connection in ${delay}ms (attempt ${this.reconnectAttempts})`);
     
     setTimeout(async () => {
-      // Verificar si todavía se debe mantener la conexión
+      // Check if connection should still be maintained
       if (!this.connectionEnabled) {
         console.log('🚫 Connection disabled, canceling reconnection');
         return;
       }
       
-      // Verificar disponibilidad del servidor antes de reconectar
+      // Check server availability before reconnecting
       if (await this.isServerAvailable()) {
         try {
           await this.connectToServer();
         } catch (error) {
-          console.error('❌ Error en reconexión:', error);
+          console.error('❌ Error in reconnection:', error);
           this.scheduleReconnect();
         }
       } else {
@@ -765,15 +765,15 @@ class UnifiProtectExtension {
   }
 
   handleConnectionError(error) {
-    console.error('❌ Error de conexión:', error);
+    console.error('❌ Connection error:', error);
     this.updateBadge('ERR', '#FF9800');
     
-    // Limpiar token si hay errores de autenticación
+    // Clear token if there are authentication errors
     if (error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403')) {
       this.clearToken();
     }
     
-    // Mostrar notificación de error
+    // Show error notification
     chrome.notifications.create('connection-error', {
       type: 'basic',
       iconUrl: 'icons/icon48.png',
@@ -793,19 +793,19 @@ class UnifiProtectExtension {
 
   disconnect() {
     if (this.ws) {
-      this.ws.close(1000, 'Desconexión intencional');
+      this.ws.close(1000, 'Intentional disconnection');
       this.ws = null;
     }
     
     this.isConnected = false;
-    this.clearToken(); // Limpiar token al desconectar
+    this.clearToken(); // Clear token when disconnecting
     this.updateBadge('OFF', '#F44336');
-    console.log('🔌 Desconectado del servidor');
+    console.log('🔌 Disconnected from server');
   }
 
   clearToken() {
     this.token = null;
-    console.log('🗑️ Token limpiado');
+    console.log('🗑️ Token cleared');
   }
 
   showWelcomeNotification() {
@@ -822,16 +822,16 @@ class UnifiProtectExtension {
   }
 
   broadcastEventToPopup(event) {
-    // Enviar evento a todas las ventanas abiertas del popup
+    // Send event to all open popup windows
     chrome.runtime.sendMessage({
       type: 'unifiEvent',
       event: event
     }).catch(() => {
-      // Ignorar errores si no hay popup abierto
+      // Ignore errors if no popup is open
     });
   }
 
-  // Método para mantener la conexión activa
+  // Method to keep connection active
   startHeartbeat() {
     setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -840,76 +840,76 @@ class UnifiProtectExtension {
           timestamp: new Date().toISOString()
         }));
       }
-    }, 30000); // Ping cada 30 segundos
+    }, 30000); // Ping every 30 seconds
   }
 
   sendEventToContentScript(event) {
     try {
-      console.log('📤 Enviando evento a content script:', event);
-      // Enviar mensaje a todas las pestañas activas
+      console.log('📤 Sending event to content script:', event);
+      // Send message to all active tabs
       chrome.tabs.query({ active: true }, (tabs) => {
         tabs.forEach(tab => {
           chrome.tabs.sendMessage(tab.id, {
             type: 'showPopup',
             event: event
           }).catch(error => {
-            // Ignorar errores si no hay content script en la pestaña
-            console.log('No se pudo enviar mensaje a la pestaña:', tab.id, error.message);
+            // Ignore errors if there's no content script in the tab
+            console.log('Could not send message to tab:', tab.id, error.message);
           });
         });
       });
       
-      console.log('📤 Evento enviado a content scripts para mostrar popup:', event.id);
+      console.log('📤 Event sent to content scripts to show popup:', event.id);
       
     } catch (error) {
-      console.error('❌ Error enviando evento a content script:', error);
+      console.error('❌ Error sending event to content script:', error);
     }
   }
 
-  // Configurar alarma para mantener service worker activo
+  // Configure alarm to keep service worker active
   setupKeepAlive() {
-    console.log('⏰ Configurando alarma keep-alive para mantener service worker activo');
+    console.log('⏰ Configuring keep-alive alarm to keep service worker active');
     
-    // Crear alarma que se ejecuta cada 25 segundos (antes de que Chrome suspenda el service worker)
+    // Create alarm that runs every 25 seconds (before Chrome suspends the service worker)
     chrome.alarms.create('keepAlive', {
-      periodInMinutes: 0.4 // ~24 segundos (mínimo permitido es 0.4 min en Chrome)
+      periodInMinutes: 0.4 // ~24 seconds (minimum allowed is 0.4 min in Chrome)
     });
   }
 
-  // Verificar y reconectar si es necesario
+  // Check and reconnect if necessary
   async checkConnection() {
-    console.log('🔍 Verificando estado de conexión...');
+    console.log('🔍 Checking connection status...');
     
-    // Si la conexión está deshabilitada, no hacer nada
+    // If connection is disabled, do nothing
     if (!this.connectionEnabled) {
       console.log('🚫 Connection disabled');
       return;
     }
     
-    // Si no está conectado, intentar reconectar
+    // If not connected, try to reconnect
     if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.log('🔄 Connection lost, reconnecting...');
       try {
         await this.connectToServer();
       } catch (error) {
-        console.error('❌ Error al reconectar:', error);
+        console.error('❌ Error reconnecting:', error);
       }
     } else {
       console.log('✅ Connection active');
     }
   }
 
-  // Reconectar si estaba conectado antes
+  // Reconnect if it was connected before
   async reconnectIfNeeded() {
-    console.log('🔄 Verificando si se necesita reconectar...');
+    console.log('🔄 Checking if reconnection is needed...');
     
-    // Cargar configuración primero
+    // Load configuration first
     await this.loadSettings();
     
-    // Si la conexión estaba habilitada, reconectar
+    // If connection was enabled, reconnect
     if (this.connectionEnabled) {
-      console.log('🔗 Reconectando al servidor...');
-      setTimeout(() => this.connectToServer(), 2000); // Esperar 2 segundos antes de reconectar
+      console.log('🔗 Reconnecting to server...');
+      setTimeout(() => this.connectToServer(), 2000); // Wait 2 seconds before reconnecting
     } else {
       console.log('🚫 Connection was not enabled, not reconnecting');
     }
@@ -917,5 +917,5 @@ class UnifiProtectExtension {
 
 }
 
-// Inicializar la extensión
+// Initialize the extension
 const unifiExtension = new UnifiProtectExtension();

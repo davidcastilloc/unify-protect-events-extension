@@ -1,8 +1,8 @@
-// Script de diagnóstico para consola del navegador
-// Copia y pega este código en la consola del DevTools de Chrome para diagnosticar la conexión
+// Browser console diagnostic script
+// Copy and paste this code in Chrome DevTools console to diagnose connection
 
 (async function diagnoseUnifiConnection() {
-  console.log('%c🔍 DIAGNÓSTICO DE CONEXIÓN UNIFI', 'background: #667eea; color: white; padding: 10px; font-size: 16px; font-weight: bold;');
+  console.log('%c🔍 UNIFI CONNECTION DIAGNOSTIC', 'background: #667eea; color: white; padding: 10px; font-size: 16px; font-weight: bold;');
   
   const SERVER_URL = 'http://localhost:3001';
   const clientId = 'test-' + Math.random().toString(36).substr(2, 9);
@@ -16,12 +16,12 @@
     console.log(`   └─ Connected clients: ${data.clients}`);
   } catch (error) {
     console.error('❌ Error conectando al servidor:', error.message);
-    console.log('%c⚠️ Asegúrate de que el servidor esté corriendo: npm start', 'color: orange; font-weight: bold;');
+    console.log('%c⚠️ Make sure the server is running: npm start', 'color: orange; font-weight: bold;');
     return;
   }
   
   // Test 2: Obtener token
-  console.log('\n%c🔑 Test 2: Autenticación', 'color: #667eea; font-weight: bold;');
+  console.log('\n%c🔑 Test 2: Authentication', 'color: #667eea; font-weight: bold;');
   let token;
   try {
     const response = await fetch(`${SERVER_URL}/auth/token`, {
@@ -60,9 +60,9 @@
     if (message.type === 'event') {
       console.log('%c🎯 EVENTO RECIBIDO:', 'background: #4CAF50; color: white; padding: 5px; font-weight: bold;');
       console.log('   ├─ Tipo:', message.data.type);
-      console.log('   ├─ Cámara:', message.data.camera.name);
+      console.log('   ├─ Camera:', message.data.camera.name);
       console.log('   ├─ Severidad:', message.data.severity);
-      console.log('   └─ Descripción:', message.data.description);
+      console.log('   └─ Description:', message.data.description);
     }
   };
   
@@ -74,9 +74,9 @@
     console.log(`🔌 WebSocket cerrado: ${event.code} - ${event.reason}`);
   };
   
-  // Test 4: Generar evento de prueba
-  console.log('\n%c🎭 Test 4: Generar evento de simulación', 'color: #667eea; font-weight: bold;');
-  console.log('Esperando 3 segundos antes de generar evento...');
+  // Test 4: Generate test event
+  console.log('\n%c🎭 Test 4: Generate simulation event', 'color: #667eea; font-weight: bold;');
+  console.log('Waiting 3 seconds before generating event...');
   
   setTimeout(async () => {
     try {
@@ -86,8 +86,8 @@
         body: JSON.stringify({ eventType: 'person' })
       });
       const data = await response.json();
-      console.log('✅ Evento de simulación generado:', data);
-      console.log('   └─ Deberías ver el evento en el WebSocket arriba ↑');
+      console.log('✅ Simulation event generated:', data);
+      console.log('   └─ You should see the event in the WebSocket above ↑');
     } catch (error) {
       console.error('❌ Error generando evento:', error.message);
     }
@@ -95,12 +95,12 @@
   
   // Instrucciones finales
   console.log('\n%c💡 INSTRUCCIONES:', 'background: #2196F3; color: white; padding: 5px; font-weight: bold;');
-  console.log('1. Si ves "WebSocket conectado" y "Mensaje recibido: connected", la conexión funciona');
-  console.log('2. Si ves un evento después de 3 segundos, el servidor está enviando eventos correctamente');
-  console.log('3. Para cerrar la conexión: ws.close()');
-  console.log('4. Para generar más eventos: fetch("http://localhost:3001/api/simulation/generate", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({eventType: "person"})})');
+  console.log('1. If you see "WebSocket connected" and "Message received: connected", the connection works');
+  console.log('2. If you see an event after 3 seconds, the server is sending events correctly');
+  console.log('3. To close the connection: ws.close()');
+  console.log('4. To generate more events: fetch("http://localhost:3001/api/simulation/generate", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({eventType: "person"})})');
   
-  // Guardar ws en global para acceso
+  // Save ws in global for access
   window.testWs = ws;
   console.log('\n💾 WebSocket guardado en window.testWs para debugging');
   

@@ -139,19 +139,19 @@ class UnifiContentScript {
   }
 
   setupPopupEventListeners(popup, event) {
-    // Botón de cerrar
+    // Close button
     const closeBtn = popup.querySelector('.popup-close');
     closeBtn.addEventListener('click', () => {
       this.removePopup(event.id);
     });
 
-    // Botón de cerrar secundario
+    // Secondary close button
     const closeBtnSecondary = popup.querySelector('.popup-btn-secondary');
     closeBtnSecondary.addEventListener('click', () => {
       this.removePopup(event.id);
     });
 
-    // Botón de ver detalles
+    // View details button
     const detailsBtn = popup.querySelector('.popup-btn-primary');
     detailsBtn.addEventListener('click', () => {
       this.showEventDetails(event);
@@ -276,7 +276,7 @@ class UnifiContentScript {
     
     document.body.appendChild(modal);
     
-    // Animar entrada
+    // Animate entrance
     setTimeout(() => {
       modal.classList.add('modal-visible');
     }, 10);
@@ -753,5 +753,5 @@ class UnifiContentScript {
   }
 }
 
-// Inicializar el content script
+// Initialize the content script
 const unifiContentScript = new UnifiContentScript();
