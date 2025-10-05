@@ -1,4 +1,4 @@
-// Content script para mostrar popups flotantes en las páginas web
+// Content script to display floating popups on web pages
 class UnifiContentScript {
   constructor() {
     this.popups = new Map();
@@ -6,7 +6,7 @@ class UnifiContentScript {
   }
 
   init() {
-    console.log('🚀 Inicializando content script UniFi Protect');
+    console.log('🚀 Initializing UniFi Protect content script');
     
     // Escuchar mensajes del background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -26,18 +26,18 @@ class UnifiContentScript {
         this.removePopup(message.eventId);
         break;
       default:
-        console.log('Mensaje no manejado en content script:', message);
+        console.log('Unhandled message in content script:', message);
     }
   }
 
   createFloatingPopup(event) {
     try {
-      // Verificar si ya existe un popup para este evento
+      // Check if popup already exists for this event
       if (this.popups.has(event.id)) {
         return;
       }
 
-      // Crear el popup flotante
+      // Create floating popup
       const popup = document.createElement('div');
       popup.id = `unifi-popup-${event.id}`;
       popup.className = 'unifi-floating-popup';
@@ -81,34 +81,34 @@ class UnifiContentScript {
         </div>
       `;
       
-      // Agregar estilos CSS si no existen
+      // Add CSS styles if they don't exist
       this.ensurePopupStyles();
       
-      // Agregar event listeners
+      // Add event listeners
       this.setupPopupEventListeners(popup, event);
       
-      // Agregar el popup al DOM
+      // Add popup to DOM
       document.body.appendChild(popup);
       
-      // Guardar referencia
+      // Save reference
       this.popups.set(event.id, popup);
       
-      // Animar entrada
+      // Animate entrance
       setTimeout(() => {
         popup.classList.add('popup-visible');
       }, 10);
       
-      // Auto-cerrar después de 10 segundos (excepto para eventos críticos)
+      // Auto-close after 10 seconds (except for critical events)
       if (event.severity !== 'critical') {
         setTimeout(() => {
           this.removePopup(event.id);
         }, 10000);
       }
       
-      console.log('🎯 Popup flotante creado para evento:', event.id);
+      console.log('🎯 Floating popup created for event:', event.id);
       
     } catch (error) {
-      console.error('❌ Error creando popup flotante:', error);
+      console.error('❌ Error creating floating popup:', error);
     }
   }
 
@@ -131,7 +131,7 @@ class UnifiContentScript {
       this.showEventDetails(event);
     });
 
-    // Click en el header para mostrar detalles
+    // Click on header to show details
     const header = popup.querySelector('.popup-header');
     header.addEventListener('click', () => {
       this.showEventDetails(event);
@@ -152,13 +152,13 @@ class UnifiContentScript {
   }
 
   showEventDetails(event) {
-    // Verificar si ya existe un modal para este evento
+    // Check if modal already exists for this event
     const existingModal = document.querySelector(`#unifi-modal-${event.id}`);
     if (existingModal) {
-      return; // No mostrar modal duplicado
+      return; // Don't show duplicate modal
     }
 
-    // Crear un modal con detalles completos del evento
+    // Create modal with complete event details
     const modal = document.createElement('div');
     modal.id = `unifi-modal-${event.id}`;
     modal.className = 'unifi-event-modal';
@@ -194,7 +194,7 @@ class UnifiContentScript {
               <div class="detail-section">
                 <h3>Camera Information</h3>
                 <div class="detail-row">
-                  <span class="label">Nombre:</span>
+                  <span class="label">Name:</span>
                   <span class="value">${event.camera.name}</span>
                 </div>
                 <div class="detail-row">
@@ -202,7 +202,7 @@ class UnifiContentScript {
                   <span class="value">${event.camera.id}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="label">Modelo:</span>
+                  <span class="label">Model:</span>
                   <span class="value">${event.camera.model || 'N/A'}</span>
                 </div>
               </div>
@@ -211,7 +211,7 @@ class UnifiContentScript {
                 <h3>Temporal Information</h3>
                 <div class="detail-row">
                   <span class="label">Timestamp:</span>
-                  <span class="value">${new Date(event.timestamp).toLocaleString('es-ES')}</span>
+                  <span class="value">${new Date(event.timestamp).toLocaleString('en-US')}</span>
                 </div>
                 <div class="detail-row">
                   <span class="label">ISO String:</span>
@@ -227,10 +227,10 @@ class UnifiContentScript {
       </div>
     `;
     
-    // Agregar estilos del modal si no existen
+    // Add modal styles if they don't exist
     this.ensureModalStyles();
     
-    // Agregar event listeners del modal
+    // Add modal event listeners
     const modalClose = modal.querySelector('.modal-close');
     const modalBtn = modal.querySelector('.modal-btn-primary');
     const modalOverlay = modal.querySelector('.modal-overlay');
@@ -255,7 +255,7 @@ class UnifiContentScript {
       modal.classList.add('modal-visible');
     }, 10);
 
-    // Auto-cerrar el modal después de 15 segundos (excepto para eventos críticos)
+    // Auto-close modal after 15 seconds (except for critical events)
     if (event.severity !== 'critical') {
       setTimeout(() => {
         const modalToClose = document.querySelector(`#unifi-modal-${event.id}`);
@@ -272,7 +272,7 @@ class UnifiContentScript {
   }
 
   ensurePopupStyles() {
-    // Verificar si los estilos ya existen
+    // Check if styles already exist
     if (document.getElementById('unifi-popup-styles')) {
       return;
     }
