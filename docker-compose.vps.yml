@@ -6,10 +6,12 @@ services:
     container_name: unifi-protect-notifications
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3000:3000"
+    environment_file:
+      - .env
     environment:
       - NODE_ENV=production
-      - PORT=3001
+      - PORT=3000
       - LOG_LEVEL=info
       - UNIFI_HOST=${UNIFI_HOST}
       - UNIFI_PORT=${UNIFI_PORT}
