@@ -1,6 +1,6 @@
-// Background script for UniFi Protect extension
+// Background script para la extensión de UniFi Protect
 /**
- * UNIFI EVENT TYPES (from UnifiProtectClient.ts):
+ * TIPOS DE EVENTOS UNIFI (desde UnifiProtectClient.ts):
  * - 'motion': Motion detected (camera, sensor, light)
  * - 'person': Person detected
  * - 'vehicle': Vehicle detected
@@ -9,13 +9,13 @@
  * - 'smart_detect': Smart detection (audio, zone, line, loitering)
  * - 'sensor': Sensor events (low battery, water, alarm, open, close, etc.)
  * 
- * SEVERITY LEVELS:
+ * SEVERIDADES:
  * - 'low': Low (< 50 score)
  * - 'medium': Medium (50-69 score)
  * - 'high': High (70-89 score)
  * - 'critical': Critical (>= 90 score)
  * 
- * EVENT STRUCTURE (UnifiEvent):
+ * ESTRUCTURA DEL EVENTO (UnifiEvent):
  * {
  *   id: string,
  *   type: EventType,
@@ -34,32 +34,32 @@ class UnifiProtectExtension {
     this.clientId = this.generateClientId();
     this.token = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = Infinity; // Always try to reconnect
+    this.maxReconnectAttempts = Infinity; // Intentar reconectar siempre
     this.reconnectDelay = 5000;
-    this.connectionEnabled = true; // By default, keep connection active
+    this.connectionEnabled = true; // Por defecto, mantener conexión activa
     
     this.init();
   }
 
   async init() {
-    console.log('🚀 Starting UniFi Protect extension (Service Worker)');
+    console.log('🚀 Iniciando extensión UniFi Protect (Service Worker)');
     
-    // Load saved configuration
+    // Cargar configuración guardada
     await this.loadSettings();
     
-    // Setup event listeners
+    // Configurar listeners de eventos
     this.setupEventListeners();
     
-    // Setup alarms to keep service worker active
+    // Configurar alarmas para mantener service worker activo
     this.setupKeepAlive();
     
-    // Start heartbeat to maintain WebSocket connection
+    // Iniciar heartbeat para mantener conexión WebSocket
     this.startHeartbeat();
     
-    // Auto-connect if it was connected before
+    // Connect automatically if it was connected before
     if (this.connectionEnabled) {
-      console.log('🔄 Auto-connecting to server...');
-      setTimeout(() => this.connectToServer(), 1000); // Give time for everything to load
+      console.log('🔄 Auto-conectando al servidor...');
+      setTimeout(() => this.connectToServer(), 1000); // Dar tiempo para que se cargue todo
     }
   }
 
@@ -91,7 +91,7 @@ class UnifiProtectExtension {
       this.soundEnabled = syncResult.soundEnabled !== false;
       this.connectionEnabled = localResult.connectionEnabled !== false; // Por defecto true
       
-      console.log('⚙️ Configuración cargada:', {
+      console.log('⚙️ Configuration loaded:', {
         serverUrl: this.serverUrl,
         notificationsEnabled: this.notificationsEnabled,
         soundEnabled: this.soundEnabled,
@@ -189,7 +189,7 @@ class UnifiProtectExtension {
 
   async connectToServer() {
     try {
-      console.log('🔗 Conectando al servidor...');
+      console.log('🔗 Connecting to server...');
       
       // Verificar si el servidor está disponible antes de obtener token
       if (!await this.isServerAvailable()) {
@@ -205,7 +205,7 @@ class UnifiProtectExtension {
         }
       }
 
-      // Conectar WebSocket
+      // Connect WebSocket
       await this.connectWebSocket();
       
     } catch (error) {
@@ -225,11 +225,11 @@ class UnifiProtectExtension {
       });
       
       const isAvailable = response.ok;
-      console.log(isAvailable ? '✅ Servidor disponible' : '❌ Servidor no disponible');
+      console.log(isAvailable ? '✅ Server available' : '❌ Server not available');
       return isAvailable;
       
     } catch (error) {
-      console.log('❌ Servidor no disponible:', error.message);
+      console.log('❌ Server not available:', error.message);
       return false;
     }
   }
@@ -264,7 +264,7 @@ class UnifiProtectExtension {
     return new Promise((resolve, reject) => {
       try {
         const wsUrl = `${this.serverUrl.replace('http', 'ws')}/ws?token=${this.token}`;
-        console.log('🔌 Conectando WebSocket:', wsUrl);
+        console.log('🔌 Connecting WebSocket:', wsUrl);
         
         this.ws = new WebSocket(wsUrl);
         
@@ -348,7 +348,7 @@ class UnifiProtectExtension {
         case 'doorbell':
         case 'smart_detect':
         case 'sensor':
-          // Eventos en formato simple que vienen directamente del backend
+          // Simple format events coming directly from backend
           console.log('📦 Evento en formato simple recibido:', message.type);
           this.handleUnifiEvent(message);
           break;
@@ -668,7 +668,7 @@ class UnifiProtectExtension {
       }
       
       const cameras = await response.json();
-      console.log('📹 Cámaras obtenidas:', cameras);
+      console.log('📹 Cameras obtained:', cameras);
       return cameras;
       
     } catch (error) {
@@ -697,7 +697,7 @@ class UnifiProtectExtension {
     setTimeout(async () => {
       // Verificar si todavía se debe mantener la conexión
       if (!this.connectionEnabled) {
-        console.log('🚫 Conexión deshabilitada, cancelando reconexión');
+        console.log('🚫 Connection disabled, canceling reconnection');
         return;
       }
       
@@ -710,7 +710,7 @@ class UnifiProtectExtension {
           this.scheduleReconnect();
         }
       } else {
-        console.log('⏳ Servidor no disponible, esperando antes del siguiente intento...');
+        console.log('⏳ Server not available, waiting before next attempt...');
         this.scheduleReconnect();
       }
     }, delay);
@@ -729,7 +729,7 @@ class UnifiProtectExtension {
     chrome.notifications.create('connection-error', {
       type: 'basic',
       iconUrl: 'icons/icon48.png',
-      title: 'Error de Conexión UniFi',
+      title: 'UniFi Connection Error',
       message: `No se pudo conectar al servidor: ${error.message}`,
       priority: 1
     });
@@ -828,20 +828,20 @@ class UnifiProtectExtension {
     
     // Si la conexión está deshabilitada, no hacer nada
     if (!this.connectionEnabled) {
-      console.log('🚫 Conexión deshabilitada');
+      console.log('🚫 Connection disabled');
       return;
     }
     
     // Si no está conectado, intentar reconectar
     if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.log('🔄 Conexión perdida, reconectando...');
+      console.log('🔄 Connection lost, reconnecting...');
       try {
         await this.connectToServer();
       } catch (error) {
         console.error('❌ Error al reconectar:', error);
       }
     } else {
-      console.log('✅ Conexión activa');
+      console.log('✅ Connection active');
     }
   }
 
@@ -857,7 +857,7 @@ class UnifiProtectExtension {
       console.log('🔗 Reconectando al servidor...');
       setTimeout(() => this.connectToServer(), 2000); // Esperar 2 segundos antes de reconectar
     } else {
-      console.log('🚫 Conexión no estaba habilitada, no reconectar');
+      console.log('🚫 Connection was not enabled, not reconnecting');
     }
   }
 

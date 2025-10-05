@@ -1,4 +1,4 @@
-// Content script to show floating popups on web pages
+// Content script para mostrar popups flotantes en las páginas web
 class UnifiContentScript {
   constructor() {
     this.popups = new Map();
@@ -6,9 +6,9 @@ class UnifiContentScript {
   }
 
   init() {
-    console.log('🚀 Initializing UniFi Protect content script');
+    console.log('🚀 Inicializando content script UniFi Protect');
     
-    // Listen for messages from background script
+    // Escuchar mensajes del background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse);
     });
@@ -26,23 +26,23 @@ class UnifiContentScript {
         this.removePopup(message.eventId);
         break;
       default:
-        console.log('Unhandled message in content script:', message);
+        console.log('Mensaje no manejado en content script:', message);
     }
   }
 
   createFloatingPopup(event) {
     try {
-      // Check if a popup already exists for this event
+      // Verificar si ya existe un popup para este evento
       if (this.popups.has(event.id)) {
         return;
       }
 
-      // Create floating popup
+      // Crear el popup flotante
       const popup = document.createElement('div');
       popup.id = `unifi-popup-${event.id}`;
       popup.className = 'unifi-floating-popup';
       
-      // Setup popup content
+      // Configure popup content
       const timestamp = new Date(event.timestamp).toLocaleString('en-US');
       const severityClass = this.getSeverityClass(event.severity);
       const eventIcon = this.getEventIcon(event.type);
@@ -81,34 +81,34 @@ class UnifiContentScript {
         </div>
       `;
       
-      // Add CSS styles if they don't exist
+      // Agregar estilos CSS si no existen
       this.ensurePopupStyles();
       
-      // Add event listeners
+      // Agregar event listeners
       this.setupPopupEventListeners(popup, event);
       
-      // Add popup to DOM
+      // Agregar el popup al DOM
       document.body.appendChild(popup);
       
-      // Save reference
+      // Guardar referencia
       this.popups.set(event.id, popup);
       
-      // Animate entry
+      // Animar entrada
       setTimeout(() => {
         popup.classList.add('popup-visible');
       }, 10);
       
-      // Auto-close after 10 seconds (except for critical events)
+      // Auto-cerrar después de 10 segundos (excepto para eventos críticos)
       if (event.severity !== 'critical') {
         setTimeout(() => {
           this.removePopup(event.id);
         }, 10000);
       }
       
-      console.log('🎯 Floating popup created for event:', event.id);
+      console.log('🎯 Popup flotante creado para evento:', event.id);
       
     } catch (error) {
-      console.error('❌ Error creating floating popup:', error);
+      console.error('❌ Error creando popup flotante:', error);
     }
   }
 
@@ -152,13 +152,13 @@ class UnifiContentScript {
   }
 
   showEventDetails(event) {
-    // Check if a modal already exists for this event
+    // Verificar si ya existe un modal para este evento
     const existingModal = document.querySelector(`#unifi-modal-${event.id}`);
     if (existingModal) {
       return; // No mostrar modal duplicado
     }
 
-    // Create a modal with complete event details
+    // Crear un modal con detalles completos del evento
     const modal = document.createElement('div');
     modal.id = `unifi-modal-${event.id}`;
     modal.className = 'unifi-event-modal';
@@ -166,7 +166,7 @@ class UnifiContentScript {
       <div class="modal-overlay">
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Detalles del Evento</h2>
+            <h2>Event Details</h2>
             <button class="modal-close">×</button>
           </div>
           <div class="modal-body">
@@ -174,19 +174,19 @@ class UnifiContentScript {
               <div class="detail-section">
                 <h3>General Information</h3>
                 <div class="detail-row">
-                  <span class="label">ID del Evento:</span>
+                  <span class="label">Event ID:</span>
                   <span class="value">${event.id}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="label">Tipo:</span>
+                  <span class="label">Type:</span>
                   <span class="value">${this.getEventTypeLabel(event.type)}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="label">Severidad:</span>
+                  <span class="label">Severity:</span>
                   <span class="value severity-${event.severity}">${this.getSeverityLabel(event.severity)}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="label">Descripción:</span>
+                  <span class="label">Description:</span>
                   <span class="value">${event.description}</span>
                 </div>
               </div>
@@ -208,7 +208,7 @@ class UnifiContentScript {
               </div>
               
               <div class="detail-section">
-                <h3>Información Temporal</h3>
+                <h3>Temporal Information</h3>
                 <div class="detail-row">
                   <span class="label">Timestamp:</span>
                   <span class="value">${new Date(event.timestamp).toLocaleString('es-ES')}</span>
@@ -221,7 +221,7 @@ class UnifiContentScript {
             </div>
           </div>
           <div class="modal-footer">
-            <button class="modal-btn modal-btn-primary">Cerrar</button>
+            <button class="modal-btn modal-btn-primary">Close</button>
           </div>
         </div>
       </div>
@@ -619,21 +619,21 @@ class UnifiContentScript {
 
   getSeverityLabel(severity) {
     const labels = {
-      'low': 'Baja',
-      'medium': 'Media',
-      'high': 'Alta',
-      'critical': 'Crítica'
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'critical': 'Critical'
     };
     return labels[severity] || severity;
   }
 
   getEventTypeLabel(eventType) {
     const labels = {
-      'motion': 'Movimiento',
-      'person': 'Persona',
-      'vehicle': 'Vehículo',
-      'package': 'Paquete',
-      'doorbell': 'Timbre',
+      'motion': 'Motion',
+      'person': 'Person',
+      'vehicle': 'Vehicle',
+      'package': 'Package',
+      'doorbell': 'Doorbell',
       'smart_detect': 'Smart Detect',
       'sensor': 'Sensor'
     };
@@ -642,16 +642,16 @@ class UnifiContentScript {
 
   getEventTitle(event) {
     const titleMap = {
-      'motion': 'Movimiento Detectado',
-      'person': 'Persona Detectada',
-      'vehicle': 'Vehículo Detectado',
-      'package': 'Paquete Detectado',
-      'doorbell': 'Timbre Presionado',
-      'smart_detect': 'Detección Inteligente',
-      'sensor': 'Evento de Sensor'
+      'motion': 'Motion Detected',
+      'person': 'Person Detected',
+      'vehicle': 'Vehicle Detected',
+      'package': 'Package Detected',
+      'doorbell': 'Doorbell Pressed',
+      'smart_detect': 'Smart Detection',
+      'sensor': 'Sensor Event'
     };
     
-    return titleMap[event.type] || 'Evento UniFi';
+    return titleMap[event.type] || 'UniFi Event';
   }
 
   getEventIcon(eventType) {

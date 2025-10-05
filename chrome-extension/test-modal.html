@@ -52,7 +52,7 @@
     <div class="test-container">
         <h1>🔔 UniFi Protect Modal Test</h1>
         
-        <p>This page simulates WebSocket events to test that the modal displays correctly when events arrive.</p>
+        <p>This page simulates websocket events to test that the modal displays correctly when events arrive.</p>
         
         <div class="event-info">
             <h3>Instructions:</h3>
@@ -101,7 +101,7 @@
                 }
             };
 
-            // Simulate the message that the background script would send
+            // Simulate the message that would be sent by the background script
             const message = {
                 type: 'showModal',
                 event: event
@@ -122,9 +122,9 @@
 
         function getEventDescription(type) {
             const descriptions = {
-                'motion': 'Motion detected in the monitored area',
-                'person': 'Person detected on camera',
-                'vehicle': 'Vehicle detected in the area',
+                'motion': 'Motion detected in monitored area',
+                'person': 'Person detected by camera',
+                'vehicle': 'Vehicle detected in area',
                 'doorbell': 'Doorbell was pressed',
                 'package': 'Package detected at entrance',
                 'sensor': 'Sensor was activated',
@@ -198,27 +198,27 @@
                         <div style="padding: 20px;">
                             <div style="margin-bottom: 20px;">
                                 <h3 style="margin: 0 0 12px 0; color: #333; font-size: 16px; font-weight: 600; border-bottom: 2px solid #667eea; padding-bottom: 4px;">
-                                    Información del Evento
+                                    Event Information
                                 </h3>
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Tipo:</span>
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Type:</span>
                                     <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${getEventTypeLabel(event.type)}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Severidad:</span>
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Severity:</span>
                                     <span style="color: ${getSeverityColor(event.severity)}; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${getSeverityLabel(event.severity)}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Descripción:</span>
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Description:</span>
                                     <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${event.description}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Cámara:</span>
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Camera:</span>
                                     <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${event.camera.name}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Hora:</span>
-                                    <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${new Date(event.timestamp).toLocaleString('es-ES')}</span>
+                                    <span style="color: #666; font-weight: 500; min-width: 120px;">Time:</span>
+                                    <span style="color: #333; font-weight: 600; text-align: right; flex: 1; margin-left: 16px;">${new Date(event.timestamp).toLocaleString('en-US')}</span>
                                 </div>
                             </div>
                         </div>
@@ -232,7 +232,7 @@
                                 cursor: pointer;
                                 background: #667eea;
                                 color: white;
-                            ">Cerrar</button>
+                            ">Close</button>
                         </div>
                     </div>
                 </div>
@@ -246,7 +246,7 @@
                 modal.querySelector('div > div').style.transform = 'scale(1)';
             }, 10);
 
-            // Auto-cerrar después de 15 segundos (excepto eventos críticos)
+            // Auto-close after 15 seconds (except critical events)
             if (event.severity !== 'critical') {
                 setTimeout(() => {
                     const modalToClose = document.querySelector(`#unifi-modal-${event.id}`);
@@ -264,11 +264,11 @@
 
         function getEventTypeLabel(eventType) {
             const labels = {
-                'motion': 'Movimiento',
-                'person': 'Persona',
-                'vehicle': 'Vehículo',
-                'package': 'Paquete',
-                'doorbell': 'Timbre',
+                'motion': 'Motion',
+                'person': 'Person',
+                'vehicle': 'Vehicle',
+                'package': 'Package',
+                'doorbell': 'Doorbell',
                 'smart_detect': 'Smart Detect',
                 'sensor': 'Sensor'
             };
@@ -277,10 +277,10 @@
 
         function getSeverityLabel(severity) {
             const labels = {
-                'low': 'Baja',
-                'medium': 'Media',
-                'high': 'Alta',
-                'critical': 'Crítica'
+                'low': 'Low',
+                'medium': 'Medium',
+                'high': 'High',
+                'critical': 'Critical'
             };
             return labels[severity] || severity;
         }

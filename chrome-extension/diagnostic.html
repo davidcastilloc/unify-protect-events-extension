@@ -267,7 +267,7 @@
                     <span class="status-icon">⏳</span>
                     <div class="test-details">
                         <div class="test-label">Waiting for WebSocket connection...</div>
-                        <div class="test-info">Waiting for welcome message from server</div>
+                        <div class="test-info">Waiting for server welcome message</div>
                     </div>
                 </div>
             </div>
@@ -359,7 +359,7 @@
         }
 
         async function runFullDiagnostic() {
-            log('🚀 Iniciando diagnóstico completo...', 'info');
+            log('🚀 Starting full diagnostics...', 'info');
             
             document.getElementById('runTestBtn').disabled = true;
             eventsReceived = 0;
@@ -369,7 +369,7 @@
             const httpSuccess = await testHttpServer();
             
             if (!httpSuccess) {
-                log('❌ Diagnóstico detenido: servidor no disponible', 'error');
+                log('❌ Diagnostics stopped: server not available', 'error');
                 document.getElementById('runTestBtn').disabled = false;
                 return;
             }
@@ -378,7 +378,7 @@
             const tokenSuccess = await testAuthentication();
             
             if (!tokenSuccess) {
-                log('❌ Diagnóstico detenido: no se pudo obtener token', 'error');
+                log('❌ Diagnostics stopped: could not obtain token', 'error');
                 document.getElementById('runTestBtn').disabled = false;
                 return;
             }
@@ -387,7 +387,7 @@
             const wsSuccess = await testWebSocketConnection();
             
             if (!wsSuccess) {
-                log('❌ Diagnóstico detenido: no se pudo establecer conexión WebSocket', 'error');
+                log('❌ Diagnostics stopped: could not establish WebSocket connection', 'error');
                 document.getElementById('runTestBtn').disabled = false;
                 return;
             }
@@ -395,14 +395,14 @@
             // Esperar mensaje de bienvenida
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            log('✅ Diagnóstico completo exitoso', 'info');
+            log('✅ Full diagnostics successful', 'info');
             document.getElementById('runTestBtn').disabled = false;
             document.getElementById('generateEventBtn').disabled = false;
         }
 
         async function testHttpServer() {
-            log('Probando conexión HTTP al servidor...', 'debug');
-            updateTestResult('httpTest', 'pending', 'Conectando...', 'Verificando ' + SERVER_URL);
+            log('Testing HTTP connection to server...', 'debug');
+            updateTestResult('httpTest', 'pending', 'Connecting...', 'Verifying ' + SERVER_URL);
 
             try {
                 const startTime = Date.now();
@@ -416,29 +416,29 @@
                 const data = await response.json();
                 
                 updateTestResult('httpTest', 'success', 
-                    'Servidor HTTP disponible ✓', 
-                    `Status: ${data.status} | Clientes: ${data.clients} | Latencia: ${latency}ms`
+                    'HTTP Server available ✓', 
+                    `Status: ${data.status} | Clients: ${data.clients} | Latency: ${latency}ms`
                 );
                 
                 document.getElementById('clientsCount').textContent = data.clients;
                 document.getElementById('latency').textContent = latency;
                 
-                log(`✅ Servidor HTTP disponible (${latency}ms)`, 'info');
+                log(`✅ HTTP Server available (${latency}ms)`, 'info');
                 return true;
                 
             } catch (error) {
                 updateTestResult('httpTest', 'error', 
-                    'Error de conexión', 
+                    'Connection Error', 
                     error.message
                 );
-                log(`❌ Error conectando al servidor: ${error.message}`, 'error');
+                log(`❌ Error connecting to server: ${error.message}`, 'error');
                 return false;
             }
         }
 
         async function testAuthentication() {
-            log('Obteniendo token de autenticación...', 'debug');
-            updateTestResult('tokenTest', 'pending', 'Generando token...', `Cliente ID: ${clientId}`);
+            log('Obtaining authentication token...', 'debug');
+            updateTestResult('tokenTest', 'pending', 'Generating token...', `Client ID: ${clientId}`);
 
             try {
                 const response = await fetch(`${SERVER_URL}/auth/token`, {
@@ -457,27 +457,27 @@
                 token = data.token;
                 
                 updateTestResult('tokenTest', 'success', 
-                    'Token obtenido ✓', 
+                    'Token obtained ✓', 
                     `Token: ${token.substring(0, 20)}...`
                 );
                 
-                log('✅ Token de autenticación obtenido', 'info');
+                log('✅ Authentication token obtained', 'info');
                 return true;
                 
             } catch (error) {
                 updateTestResult('tokenTest', 'error', 
-                    'Error obteniendo token', 
+                    'Error obtaining token', 
                     error.message
                 );
-                log(`❌ Error obteniendo token: ${error.message}`, 'error');
+                log(`❌ Error obtaining token: ${error.message}`, 'error');
                 return false;
             }
         }
 
         async function testWebSocketConnection() {
             return new Promise((resolve) => {
-                log('Conectando WebSocket...', 'debug');
-                updateTestResult('wsTest', 'pending', 'Conectando...', `ws://localhost:3001/ws`);
+                log('Connecting WebSocket...', 'debug');
+                updateTestResult('wsTest', 'pending', 'Connecting...', `ws://localhost:3001/ws`);
 
                 const wsUrl = `ws://localhost:3001/ws?token=${token}`;
                 ws = new WebSocket(wsUrl);
@@ -485,10 +485,10 @@
                 const timeout = setTimeout(() => {
                     if (ws && ws.readyState !== WebSocket.OPEN) {
                         updateTestResult('wsTest', 'error', 
-                            'Timeout de conexión', 
-                            'No se pudo conectar en 10 segundos'
+                            'Connection timeout', 
+                            'Could not connect in 10 seconds'
                         );
-                        log('❌ Timeout de conexión WebSocket', 'error');
+                        log('❌ WebSocket connection timeout', 'error');
                         resolve(false);
                     }
                 }, 10000);
@@ -496,10 +496,10 @@
                 ws.onopen = () => {
                     clearTimeout(timeout);
                     updateTestResult('wsTest', 'success', 
-                        'WebSocket conectado ✓', 
-                        'Conexión establecida correctamente'
+                        'WebSocket connected ✓', 
+                        'Connection established successfully'
                     );
-                    log('✅ WebSocket conectado', 'info');
+                    log('✅ WebSocket connected', 'info');
                     resolve(true);
                 };
 
@@ -510,15 +510,15 @@
                 ws.onerror = (error) => {
                     clearTimeout(timeout);
                     updateTestResult('wsTest', 'error', 
-                        'Error en WebSocket', 
-                        'Error de conexión'
+                        'WebSocket error', 
+                        'Connection error'
                     );
-                    log(`❌ Error en WebSocket: ${error}`, 'error');
+                    log(`❌ WebSocket error: ${error}`, 'error');
                     resolve(false);
                 };
 
                 ws.onclose = (event) => {
-                    log(`🔌 WebSocket cerrado: ${event.code} - ${event.reason}`, 'warning');
+                    log(`🔌 WebSocket closed: ${event.code} - ${event.reason}`, 'warning');
                     document.getElementById('generateEventBtn').disabled = true;
                 };
             });
@@ -527,37 +527,37 @@
         function handleWebSocketMessage(event) {
             try {
                 const message = JSON.parse(event.data);
-                log(`📨 Mensaje recibido: ${message.type}`, 'debug');
+                log(`📨 Message received: ${message.type}`, 'debug');
 
                 if (message.type === 'connected') {
                     updateTestResult('messageTest', 'success', 
-                        'Mensaje de bienvenida recibido ✓', 
-                        `Cliente ID: ${message.clientId}`
+                        'Welcome message received ✓', 
+                        `Client ID: ${message.clientId}`
                     );
-                    log('✅ Mensaje de bienvenida recibido', 'info');
+                    log('✅ Welcome message received', 'info');
                 } else if (message.type === 'event') {
                     eventsReceived++;
                     document.getElementById('eventsReceived').textContent = eventsReceived;
                     
                     updateTestResult('simulationTest', 'success', 
-                        'Evento recibido ✓', 
-                        `Tipo: ${message.data.type} | Cámara: ${message.data.camera.name}`
+                        'Event received ✓', 
+                        `Type: ${message.data.type} | Camera: ${message.data.camera.name}`
                     );
                     
-                    log(`🎯 Evento recibido: ${message.data.type} desde ${message.data.camera.name}`, 'info');
+                    log(`🎯 Event received: ${message.data.type} from ${message.data.camera.name}`, 'info');
                 } else if (message.type === 'pong') {
-                    log('🏓 Pong recibido', 'debug');
+                    log('🏓 Pong received', 'debug');
                 }
             } catch (error) {
-                log(`❌ Error procesando mensaje: ${error.message}`, 'error');
+                log(`❌ Error processing message: ${error.message}`, 'error');
             }
         }
 
         async function generateTestEvent() {
-            log('Generando evento de prueba...', 'debug');
+            log('Generating test event...', 'debug');
             updateTestResult('simulationTest', 'pending', 
-                'Generando evento...', 
-                'Solicitando evento de simulación al servidor'
+                'Generating event...', 
+                'Requesting simulation event from server'
             );
 
             try {
@@ -574,25 +574,25 @@
                 }
 
                 const data = await response.json();
-                log('✅ Evento de prueba generado', 'info');
+                log('✅ Test event generated', 'info');
                 
             } catch (error) {
                 updateTestResult('simulationTest', 'error', 
-                    'Error generando evento', 
+                    'Error generating event', 
                     error.message
                 );
-                log(`❌ Error generando evento: ${error.message}`, 'error');
+                log(`❌ Error generating event: ${error.message}`, 'error');
             }
         }
 
         function clearLogs() {
             document.getElementById('logSection').innerHTML = '';
-            log('Logs limpiados', 'info');
+            log('Logs cleared', 'info');
         }
 
         // Inicializar
-        log('🔍 Herramienta de diagnóstico cargada', 'info');
-        log('Presiona "Ejecutar Diagnóstico" para comenzar', 'info');
+        log('🔍 Diagnostics tool loaded', 'info');
+        log('Press "Run Diagnostics" to begin', 'info');
     </script>
 </body>
 </html>

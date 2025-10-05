@@ -1,4 +1,4 @@
-// Script for the UniFi Protect extension options page
+// Script para la página de opciones de la extensión UniFi Protect
 class OptionsController {
   constructor() {
     this.defaultSettings = {
@@ -36,18 +36,18 @@ class OptionsController {
   }
 
   async init() {
-    console.log('🚀 Initializing options page');
+    console.log('🚀 Inicializando página de opciones');
     
-    // Load saved configuration
+    // Cargar configuración guardada
     await this.loadSettings();
     
-    // Setup event listeners
+    // Configurar event listeners
     this.setupEventListeners();
     
-    // Load available cameras
+    // Cargar cámaras disponibles
     await this.loadCameras();
     
-    // Update UI
+    // Actualizar UI
     this.updateUI();
   }
 
@@ -55,7 +55,7 @@ class OptionsController {
     try {
       const settings = await chrome.storage.sync.get(Object.keys(this.defaultSettings));
       
-      // Apply loaded configuration or use default values
+      // Aplicar configuración cargada o usar valores por defecto
       Object.keys(this.defaultSettings).forEach(key => {
         if (settings[key] !== undefined) {
           this.defaultSettings[key] = settings[key];
@@ -65,13 +65,13 @@ class OptionsController {
       console.log('⚙️ Configuration loaded:', this.defaultSettings);
       
     } catch (error) {
-      console.error('❌ Error loading configuration:', error);
-      this.showToast('Error loading configuration', 'error');
+      console.error('❌ Error cargando configuración:', error);
+      this.showToast('Error cargando configuración', 'error');
     }
   }
 
   setupEventListeners() {
-    // Main buttons
+    // Botones principales
     document.getElementById('saveBtn').addEventListener('click', () => {
       this.saveSettings();
     });
@@ -80,7 +80,7 @@ class OptionsController {
       this.resetSettings();
     });
     
-    // Test buttons
+    // Botones de prueba
     document.getElementById('testConnectionBtn').addEventListener('click', () => {
       this.testConnection();
     });
@@ -101,7 +101,7 @@ class OptionsController {
       this.importConfig();
     });
     
-    // Footer links
+    // Links del footer
     document.getElementById('helpLink').addEventListener('click', (e) => {
       e.preventDefault();
       this.showHelp();
@@ -112,22 +112,22 @@ class OptionsController {
       this.showFeedback();
     });
     
-    // File input for import
+    // File input para importar
     document.getElementById('importFileInput').addEventListener('change', (e) => {
       this.handleImportFile(e.target.files[0]);
     });
     
-    // Auto-save on changes
+    // Auto-save en cambios
     this.setupAutoSave();
   }
 
   setupAutoSave() {
-    // Auto-save when values change
+    // Auto-guardar cuando cambien los valores
     const inputs = document.querySelectorAll('input, select');
     inputs.forEach(input => {
       input.addEventListener('change', () => {
         this.debounce(() => {
-          this.saveSettings(false); // false = don't show toast
+          this.saveSettings(false); // false = no mostrar toast
         }, 1000)();
       });
     });
@@ -157,10 +157,10 @@ class OptionsController {
     document.getElementById('notificationDuration').value = this.defaultSettings.notificationDuration;
     document.getElementById('maxNotifications').value = this.defaultSettings.maxNotifications;
     
-    // Event filters
+    // Filtros de eventos
     document.getElementById('filtersEnabled').checked = this.defaultSettings.filtersEnabled;
     
-    // Event types
+    // Tipos de eventos
     Object.keys(this.defaultSettings.eventTypes).forEach(type => {
       const checkbox = document.getElementById(`filter${type.charAt(0).toUpperCase() + type.slice(1)}`);
       if (checkbox) {
@@ -168,7 +168,7 @@ class OptionsController {
       }
     });
     
-    // Severity levels
+    // Niveles de severidad
     Object.keys(this.defaultSettings.severityLevels).forEach(level => {
       const checkbox = document.getElementById(`filter${level.charAt(0).toUpperCase() + level.slice(1)}`);
       if (checkbox) {
@@ -192,18 +192,18 @@ class OptionsController {
         const cameras = await response.json();
         this.populateCameraSelect(cameras);
       } else {
-        this.addTestResult('Could not load cameras from server', 'error');
+        this.addTestResult('No se pudieron cargar las cámaras del servidor', 'error');
       }
       
     } catch (error) {
-      console.error('❌ Error loading cameras:', error);
-      this.addTestResult('Error connecting to server to get cameras', 'error');
+      console.error('❌ Error cargando cámaras:', error);
+      this.addTestResult('Error conectando al servidor para obtener cámaras', 'error');
     }
   }
 
   populateCameraSelect(cameras) {
     const select = document.getElementById('cameraFilter');
-    select.innerHTML = '<option value="">All cameras</option>';
+    select.innerHTML = '<option value="">Todas las cámaras</option>';
     
     cameras.forEach(camera => {
       const option = document.createElement('option');
@@ -220,7 +220,7 @@ class OptionsController {
       
       await chrome.storage.sync.set(settings);
       
-      // Send updated configuration to background script
+      // Enviar configuración actualizada al background script
       await this.sendMessageToBackground({
         type: 'updateSettings',
         settings: settings
@@ -233,8 +233,8 @@ class OptionsController {
       console.log('💾 Configuration saved:', settings);
       
     } catch (error) {
-      console.error('❌ Error saving configuration:', error);
-      this.showToast('Error saving configuration', 'error');
+      console.error('❌ Error guardando configuración:', error);
+      this.showToast('Error guardando configuración', 'error');
     }
   }
 
@@ -276,15 +276,15 @@ class OptionsController {
   }
 
   async resetSettings() {
-    if (confirm('Are you sure you want to restore all default values?')) {
+    if (confirm('¿Estás seguro de que quieres restaurar todos los valores por defecto?')) {
       try {
         await chrome.storage.sync.clear();
         this.defaultSettings = { ...this.defaultSettings };
         this.updateUI();
         this.showToast('Configuration restored to default values', 'info');
       } catch (error) {
-        console.error('❌ Error restoring configuration:', error);
-        this.showToast('Error restoring configuration', 'error');
+        console.error('❌ Error restaurando configuración:', error);
+        this.showToast('Error restaurando configuración', 'error');
       }
     }
   }
@@ -293,7 +293,7 @@ class OptionsController {
     const testBtn = document.getElementById('testConnectionBtn');
     const originalText = testBtn.innerHTML;
     
-    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
+    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Probando...';
     testBtn.disabled = true;
     
     try {
@@ -302,7 +302,7 @@ class OptionsController {
       
       if (response.ok) {
         const data = await response.json();
-        this.addTestResult(`✅ Conexión exitosa - Clientes conectados: ${data.clients}`, 'success');
+        this.addTestResult(`✅ Connection successful - Connected clients: ${data.clients}`, 'success');
       } else {
         this.addTestResult(`❌ Error HTTP: ${response.status}`, 'error');
       }
@@ -359,7 +359,7 @@ class OptionsController {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      this.addTestResult('✅ Configuración exportada exitosamente', 'success');
+      this.addTestResult('✅ Configuration exported successfully', 'success');
       
     } catch (error) {
       this.addTestResult(`❌ Error exportando configuración: ${error.message}`, 'error');
@@ -386,7 +386,7 @@ class OptionsController {
         // Guardar configuración
         await chrome.storage.sync.set(config);
         
-        this.addTestResult('✅ Configuración importada exitosamente', 'success');
+        this.addTestResult('✅ Configuration imported successfully', 'success');
       } else {
         this.addTestResult('❌ Archivo de configuración inválido', 'error');
       }
@@ -419,13 +419,13 @@ class OptionsController {
   showHelp() {
     const helpContent = `
       <h3>Ayuda - UniFi Protect Notifications</h3>
-      <h4>Configuración del Servidor:</h4>
+      <h4>Server Configuration:</h4>
       <p>Ingresa la URL completa de tu servidor UniFi Protect (ej: http://192.168.1.100:3001)</p>
       
-      <h4>Filtros de Eventos:</h4>
+      <h4>Event Filters:</h4>
       <p>Selecciona qué tipos de eventos quieres recibir. Puedes filtrar por tipo de evento, severidad y cámaras específicas.</p>
       
-      <h4>Notificaciones:</h4>
+      <h4>Notifications:</h4>
       <p>Las notificaciones aparecerán en tu sistema operativo cuando se detecten eventos según tus filtros configurados.</p>
       
       <h4>Solución de Problemas:</h4>

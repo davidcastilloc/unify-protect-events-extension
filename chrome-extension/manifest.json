@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "UniFi Protect Notifications",
   "version": "1.0.0",
-  "description": "Receive real-time notifications from UniFi Protect events",
+  "description": "Receive real-time notifications for UniFi Protect events",
   "permissions": [
     "notifications",
     "storage",
