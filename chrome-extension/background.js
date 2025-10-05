@@ -491,9 +491,13 @@ class UnifiProtectExtension {
       // Enviar evento al content script para mostrar popup flotante
       this.sendEventToContentScript(event);
 
-      // Reproducir sonido si está habilitado
-      if (this.soundEnabled) {
-        this.playNotificationSound(event.type);
+      // Always play notification sound for security awareness
+      // This ensures the security guard is always alerted
+      this.playNotificationSound(event.type);
+      
+      // Log sound status for debugging
+      if (!this.soundEnabled) {
+        console.log('🔊 Sound played despite sound setting being disabled - security requirement');
       }
 
       console.log('🔔 Notification shown:', notificationId);
@@ -636,7 +640,7 @@ class UnifiProtectExtension {
   }
 
   playNotificationSound(eventType) {
-    // Crear un audio context para reproducir sonidos
+    // Create audio context for security alert sounds
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -645,26 +649,41 @@ class UnifiProtectExtension {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      // Diferentes frecuencias según el tipo de evento
+      // Security-focused frequency mapping - more distinctive sounds
       const frequencyMap = {
-        'doorbell': 800,
-        'person': 600,
-        'vehicle': 500,
-        'motion': 400,
-        'sensor': 300
+        'doorbell': 1000,    // High priority - clear bell sound
+        'person': 800,       // Person detected - attention-grabbing
+        'vehicle': 600,      // Vehicle - medium priority
+        'motion': 500,       // General motion - standard alert
+        'sensor': 400,       // Sensor events - lower priority
+        'package': 700,      // Package delivery - distinct
+        'smart_detect': 900  // Smart detection - high priority
       };
       
-      oscillator.frequency.setValueAtTime(frequencyMap[eventType] || 500, audioContext.currentTime);
-      oscillator.type = 'sine';
+      const frequency = frequencyMap[eventType] || 500;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      oscillator.type = 'square'; // More attention-grabbing than sine
       
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      // Increased volume for security awareness (0.2 instead of 0.1)
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.05, audioContext.currentTime + 0.8);
       
+      // Longer duration for better awareness (0.8 seconds instead of 0.5)
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
+      oscillator.stop(audioContext.currentTime + 0.8);
+      
+      console.log(`🔊 Security alert sound played: ${eventType} (${frequency}Hz)`);
       
     } catch (error) {
-      console.error('❌ Error reproduciendo sonido:', error);
+      console.error('❌ Error playing notification sound:', error);
+      // Fallback: try to play system notification sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OSdTgwOUarm7blmGgU7k9n0unEiBS13yO/eizEIHWq+8+OWT');
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log('Fallback audio also failed:', e));
+      } catch (fallbackError) {
+        console.error('Fallback audio failed:', fallbackError);
+      }
     }
   }
 
@@ -764,9 +783,12 @@ class UnifiProtectExtension {
       type: 'basic',
       iconUrl: 'icons/icon48.png',
       title: 'UniFi Connection Error',
-      message: `No se pudo conectar al servidor: ${error.message}`,
+      message: `Could not connect to server: ${error.message}`,
       priority: 1
     });
+    
+    // Always play error sound for security awareness
+    this.playNotificationSound('sensor'); // Use sensor sound for errors
   }
 
   updateBadge(text, color) {
@@ -796,9 +818,12 @@ class UnifiProtectExtension {
       type: 'basic',
       iconUrl: 'icons/icon48.png',
       title: 'UniFi Protect Notifications',
-      message: 'Extensión instalada correctamente. Configura el servidor en las opciones.',
+      message: 'Extension installed correctly. Configure the server in options.',
       priority: 0
     });
+    
+    // Play welcome sound (gentle tone)
+    this.playNotificationSound('motion'); // Use motion sound for welcome (gentle)
   }
 
   broadcastEventToPopup(event) {
