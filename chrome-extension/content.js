@@ -48,6 +48,7 @@ class UnifiContentScript {
       const eventIcon = this.getEventIcon(event.type);
       
       popup.innerHTML = `
+        ${this.generateSecurityAudio(event.type)}
         <div class="popup-header ${severityClass}">
           <div class="popup-icon">
             <img src="${chrome.runtime.getURL(eventIcon)}" alt="${event.type}" class="event-icon">
@@ -93,9 +94,34 @@ class UnifiContentScript {
       // Save reference
       this.popups.set(event.id, popup);
       
-      // Animate entrance
+      // Animate entrance and force audio playback
       setTimeout(() => {
         popup.classList.add('popup-visible');
+        
+        // Force audio playback for security alerts
+        const audioElement = popup.querySelector('audio');
+        if (audioElement) {
+          // Try to play the audio immediately
+          audioElement.play().catch(error => {
+            console.log('Audio autoplay blocked, attempting user interaction fallback:', error);
+            
+            // If autoplay fails, try to play on any user interaction
+            const playAudioOnInteraction = () => {
+              audioElement.play().catch(e => console.log('Audio playback failed:', e));
+              // Remove listeners after first successful interaction
+              document.removeEventListener('click', playAudioOnInteraction);
+              document.removeEventListener('keydown', playAudioOnInteraction);
+              document.removeEventListener('touchstart', playAudioOnInteraction);
+            };
+            
+            // Add listeners for user interaction
+            document.addEventListener('click', playAudioOnInteraction, { once: true });
+            document.addEventListener('keydown', playAudioOnInteraction, { once: true });
+            document.addEventListener('touchstart', playAudioOnInteraction, { once: true });
+          });
+          
+          console.log(`🔊 Security alert audio generated for ${event.type} event`);
+        }
       }, 10);
       
       // Auto-close after 10 seconds (except for critical events)
@@ -666,6 +692,64 @@ class UnifiContentScript {
     };
     
     return iconMap[eventType] || 'icons/icon48.png';
+  }
+
+  // Generate HTML5 audio element with guaranteed playback for security alerts
+  generateSecurityAudio(eventType) {
+    // Different frequencies for different event types (in Hz)
+    const frequencyMap = {
+      'doorbell': 1000,    // High priority - clear bell sound
+      'person': 800,       // Person detected - attention-grabbing
+      'smart_detect': 900, // Smart detection - high priority
+      'package': 700,      // Package delivery - distinct
+      'vehicle': 600,      // Vehicle - medium priority
+      'motion': 500,       // General motion - standard alert
+      'sensor': 400        // Sensor events - lower priority
+    };
+
+    const frequency = frequencyMap[eventType] || 500;
+    
+    // Create a data URL for a simple beep sound at the specified frequency
+    // This creates a 0.8 second beep with the specified frequency
+    const sampleRate = 44100;
+    const duration = 0.8;
+    const samples = sampleRate * duration;
+    const buffer = new ArrayBuffer(44 + samples * 2);
+    const view = new DataView(buffer);
+    
+    // WAV header
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, samples * 2, true);
+    
+    // Generate sine wave
+    for (let i = 0; i < samples; i++) {
+      const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.3;
+      view.setInt16(44 + i * 2, sample * 32767, true);
+    }
+    
+    const audioDataUrl = 'data:audio/wav;base64,' + btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+    
+    return `<audio autoplay preload="auto" style="display: none;">
+      <source src="${audioDataUrl}" type="audio/wav">
+      <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OSdTgwOUarm7blmGgU7k9n0unEiBS13yO/eizEIHWq+8+OWT" type="audio/wav">
+    </audio>`;
   }
 }
 

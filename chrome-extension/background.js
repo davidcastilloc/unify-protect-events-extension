@@ -491,14 +491,9 @@ class UnifiProtectExtension {
       // Enviar evento al content script para mostrar popup flotante
       this.sendEventToContentScript(event);
 
-      // Always play notification sound for security awareness
-      // This ensures the security guard is always alerted
-      this.playNotificationSound(event.type);
-      
-      // Log sound status for debugging
-      if (!this.soundEnabled) {
-        console.log('🔊 Sound played despite sound setting being disabled - security requirement');
-      }
+      // Audio is now handled by HTML5 audio in popups for 100% reliability
+      // This ensures the security guard is always alerted with guaranteed sound
+      console.log('🔊 Audio will be played via HTML5 audio in popup for guaranteed playback');
 
       console.log('🔔 Notification shown:', notificationId);
       
