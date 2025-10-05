@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   unifi-protect-notifications:
-    image: ghcr.io/davidcastilloc/unify-protect-events-extension:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: unifi-protect-notifications
     restart: unless-stopped
     ports:
@@ -14,10 +16,7 @@ services:
       - PORT=3000
       - LOG_LEVEL=info
       - UNIFI_HOST=${UNIFI_HOST}
-      - UNIFI_PORT=${UNIFI_PORT}
       - UNIFI_API_KEY=${UNIFI_API_KEY}
-      - UNIFI_SSL_VERIFY=${UNIFI_SSL_VERIFY}
-      - JWT_SECRET=${JWT_SECRET}
       - CORS_ORIGIN=${CORS_ORIGIN}
     volumes:
       - ./logs:/app/logs
