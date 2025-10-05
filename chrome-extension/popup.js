@@ -131,70 +131,126 @@ class PopupController {
     }
   }
 
+  // Centralized button state management
+  updateButtonState(buttonId, state, options = {}) {
+    try {
+      const button = document.getElementById(buttonId);
+      if (!button) {
+        console.warn(`⚠️ Button with id '${buttonId}' not found`);
+        return;
+      }
+
+      const defaultStates = {
+        connect: {
+          idle: { text: 'Connect', disabled: false, icon: '🔗' },
+          loading: { text: 'Connecting...', disabled: true, icon: '⏳' },
+          connected: { text: 'Connected', disabled: true, icon: '✅' },
+          error: { text: 'Connect', disabled: false, icon: '❌' }
+        },
+        disconnect: {
+          idle: { text: 'Disconnect', disabled: false, icon: '🔌' },
+          loading: { text: 'Disconnecting...', disabled: true, icon: '⏳' },
+          disconnected: { text: 'Disconnected', disabled: true, icon: '✅' },
+          error: { text: 'Disconnect', disabled: false, icon: '❌' }
+        },
+        test: {
+          idle: { text: 'Test Connection', disabled: false, icon: '🧪' },
+          loading: { text: 'Testing...', disabled: true, icon: '⏳' },
+          success: { text: 'Test Connection', disabled: false, icon: '✅' },
+          error: { text: 'Test Connection', disabled: false, icon: '❌' }
+        }
+      };
+
+      const buttonType = buttonId.replace('Btn', '').toLowerCase();
+      const buttonStates = defaultStates[buttonType] || defaultStates.test;
+      const buttonState = buttonStates[state] || buttonStates.idle;
+
+      // Update button properties
+      button.disabled = buttonState.disabled;
+      
+      // Update text content (preserve HTML structure if it exists)
+      if (button.innerHTML.includes('<span class="btn-icon">')) {
+        button.innerHTML = `<span class="btn-icon">${buttonState.icon}</span> ${buttonState.text}`;
+      } else {
+        button.textContent = buttonState.text;
+      }
+
+      // Apply custom options if provided
+      if (options.customText) {
+        if (button.innerHTML.includes('<span class="btn-icon">')) {
+          button.innerHTML = `<span class="btn-icon">${options.icon || buttonState.icon}</span> ${options.customText}`;
+        } else {
+          button.textContent = options.customText;
+        }
+      }
+
+      if (options.disabled !== undefined) {
+        button.disabled = options.disabled;
+      }
+
+      console.log(`🔄 Button '${buttonId}' updated to state: ${state}`);
+      
+    } catch (error) {
+      console.error(`❌ Error updating button '${buttonId}' state:`, error);
+    }
+  }
+
   async connect() {
-    const connectBtn = document.getElementById('connectBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
-    
     // Optimistic UI: Update UI immediately
-    connectBtn.disabled = true;
-    connectBtn.textContent = 'Connecting...';
-    disconnectBtn.disabled = true;
+    this.updateButtonState('connectBtn', 'loading');
+    this.updateButtonState('disconnectBtn', 'idle', { disabled: true });
     
     try {
       const response = await this.sendMessage({ type: 'connect' });
       
       if (response && response.success) {
-        // Success: UI already reflects the optimistic state
+        // Success: Update to connected state
+        this.updateButtonState('connectBtn', 'connected');
+        this.updateButtonState('disconnectBtn', 'idle');
         this.updateConnectionStatus({ isConnected: true });
         this.showToast('Connected successfully', 'success');
       } else {
         // Revert optimistic UI on failure
-        connectBtn.disabled = false;
-        connectBtn.textContent = 'Connect';
-        disconnectBtn.disabled = false;
+        this.updateButtonState('connectBtn', 'error');
+        this.updateButtonState('disconnectBtn', 'idle');
         this.showToast('Error connecting', 'error');
       }
       
     } catch (error) {
       console.error('❌ Error connecting:', error);
       // Revert optimistic UI on error
-      connectBtn.disabled = false;
-      connectBtn.textContent = 'Connect';
-      disconnectBtn.disabled = false;
+      this.updateButtonState('connectBtn', 'error');
+      this.updateButtonState('disconnectBtn', 'idle');
       this.showToast('Error connecting: ' + error.message, 'error');
     }
   }
 
   async disconnect() {
-    const connectBtn = document.getElementById('connectBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
-    
     // Optimistic UI: Update UI immediately
-    disconnectBtn.disabled = true;
-    disconnectBtn.textContent = 'Disconnecting...';
-    connectBtn.disabled = true;
+    this.updateButtonState('disconnectBtn', 'loading');
+    this.updateButtonState('connectBtn', 'idle', { disabled: true });
     
     try {
       const response = await this.sendMessage({ type: 'disconnect' });
       
       if (response && response.success) {
-        // Success: UI already reflects the optimistic state
+        // Success: Update to disconnected state
+        this.updateButtonState('disconnectBtn', 'disconnected');
+        this.updateButtonState('connectBtn', 'idle');
         this.updateConnectionStatus({ isConnected: false });
         this.showToast('Disconnected', 'info');
       } else {
         // Revert optimistic UI on failure
-        disconnectBtn.disabled = false;
-        disconnectBtn.textContent = 'Disconnect';
-        connectBtn.disabled = false;
+        this.updateButtonState('disconnectBtn', 'error');
+        this.updateButtonState('connectBtn', 'idle');
         this.showToast('Error disconnecting', 'error');
       }
       
     } catch (error) {
       console.error('❌ Error disconnecting:', error);
       // Revert optimistic UI on error
-      disconnectBtn.disabled = false;
-      disconnectBtn.textContent = 'Disconnect';
-      connectBtn.disabled = false;
+      this.updateButtonState('disconnectBtn', 'error');
+      this.updateButtonState('connectBtn', 'idle');
       this.showToast('Error disconnecting', 'error');
     }
   }
@@ -255,12 +311,8 @@ class PopupController {
   }
 
   async testConnection() {
-    const testBtn = document.getElementById('testBtn');
-    const originalText = testBtn.innerHTML;
-    
     // Optimistic UI: Update UI immediately
-    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
-    testBtn.disabled = true;
+    this.updateButtonState('testBtn', 'loading');
     
     try {
       // Simulate connection test
@@ -269,50 +321,74 @@ class PopupController {
       const response = await this.sendMessage({ type: 'getStatus' });
       
       if (response && response.isConnected) {
+        this.updateButtonState('testBtn', 'success');
         this.showToast('Connection successful', 'success');
+        
+        // Reset to idle state after showing success
+        setTimeout(() => {
+          this.updateButtonState('testBtn', 'idle');
+        }, 2000);
       } else {
+        this.updateButtonState('testBtn', 'error');
         this.showToast('No connection', 'warning');
+        
+        // Reset to idle state after showing error
+        setTimeout(() => {
+          this.updateButtonState('testBtn', 'idle');
+        }, 2000);
       }
       
     } catch (error) {
       console.error('❌ Error testing connection:', error);
+      this.updateButtonState('testBtn', 'error');
       this.showToast('Test error', 'error');
-    } finally {
-      // Always restore button state
-      testBtn.innerHTML = originalText;
-      testBtn.disabled = false;
+      
+      // Reset to idle state after showing error
+      setTimeout(() => {
+        this.updateButtonState('testBtn', 'idle');
+      }, 2000);
     }
   }
 
   updateConnectionStatus(status) {
-    const statusDot = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
-    const connectionStatus = document.getElementById('connectionStatus');
-    const serverUrl = document.getElementById('serverUrl');
-    const clientId = document.getElementById('clientId');
-    const connectBtn = document.getElementById('connectBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
-    
-    if (status.isConnected) {
-      statusDot.className = 'status-dot connected';
-      statusText.textContent = 'Connected';
-      connectionStatus.textContent = 'Connected';
-      connectBtn.disabled = true;
-      disconnectBtn.disabled = false;
-    } else {
-      statusDot.className = 'status-dot';
-      statusText.textContent = 'Disconnected';
-      connectionStatus.textContent = 'Disconnected';
-      connectBtn.disabled = false;
-      disconnectBtn.disabled = true;
-    }
-    
-    if (status.serverUrl) {
-      serverUrl.textContent = status.serverUrl.replace('http://', '').replace('https://', '');
-    }
-    
-    if (status.clientId) {
-      clientId.textContent = status.clientId.substring(0, 8) + '...';
+    try {
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const connectionStatus = document.getElementById('connectionStatus');
+      const serverUrl = document.getElementById('serverUrl');
+      const clientId = document.getElementById('clientId');
+      
+      if (status.isConnected) {
+        // Update status indicators
+        if (statusDot) statusDot.className = 'status-dot connected';
+        if (statusText) statusText.textContent = 'Connected';
+        if (connectionStatus) connectionStatus.textContent = 'Connected';
+        
+        // Update button states using centralized system
+        this.updateButtonState('connectBtn', 'connected');
+        this.updateButtonState('disconnectBtn', 'idle');
+      } else {
+        // Update status indicators
+        if (statusDot) statusDot.className = 'status-dot';
+        if (statusText) statusText.textContent = 'Disconnected';
+        if (connectionStatus) connectionStatus.textContent = 'Disconnected';
+        
+        // Update button states using centralized system
+        this.updateButtonState('connectBtn', 'idle');
+        this.updateButtonState('disconnectBtn', 'idle', { disabled: true });
+      }
+      
+      // Update server info
+      if (status.serverUrl && serverUrl) {
+        serverUrl.textContent = status.serverUrl.replace('http://', '').replace('https://', '');
+      }
+      
+      if (status.clientId && clientId) {
+        clientId.textContent = status.clientId.substring(0, 8) + '...';
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating connection status:', error);
     }
   }
 

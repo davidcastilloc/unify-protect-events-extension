@@ -147,6 +147,76 @@ class OptionsController {
     }
   }
 
+  // Centralized button state management
+  updateButtonState(buttonId, state, options = {}) {
+    try {
+      const button = document.getElementById(buttonId);
+      if (!button) {
+        console.warn(`⚠️ Button with id '${buttonId}' not found`);
+        return;
+      }
+
+      const defaultStates = {
+        testconnection: {
+          idle: { text: 'Test Connection', disabled: false, icon: '🧪' },
+          loading: { text: 'Testing...', disabled: true, icon: '⏳' },
+          success: { text: 'Connection OK', disabled: false, icon: '✅' },
+          error: { text: 'Test Connection', disabled: false, icon: '❌' }
+        },
+        testnotification: {
+          idle: { text: 'Test Notification', disabled: false, icon: '🔔' },
+          loading: { text: 'Testing...', disabled: true, icon: '⏳' },
+          success: { text: 'Notification Sent', disabled: false, icon: '✅' },
+          error: { text: 'Test Notification', disabled: false, icon: '❌' }
+        },
+        clearhistory: {
+          idle: { text: 'Clear History', disabled: false, icon: '🗑️' },
+          loading: { text: 'Clearing...', disabled: true, icon: '⏳' },
+          success: { text: 'History Cleared', disabled: false, icon: '✅' },
+          error: { text: 'Clear History', disabled: false, icon: '❌' }
+        },
+        exportconfig: {
+          idle: { text: 'Export Config', disabled: false, icon: '📤' },
+          loading: { text: 'Exporting...', disabled: true, icon: '⏳' },
+          success: { text: 'Config Exported', disabled: false, icon: '✅' },
+          error: { text: 'Export Config', disabled: false, icon: '❌' }
+        }
+      };
+
+      const buttonType = buttonId.replace('Btn', '').toLowerCase();
+      const buttonStates = defaultStates[buttonType] || defaultStates.testconnection;
+      const buttonState = buttonStates[state] || buttonStates.idle;
+
+      // Update button properties
+      button.disabled = buttonState.disabled;
+      
+      // Update text content (preserve HTML structure if it exists)
+      if (button.innerHTML.includes('<span class="btn-icon">')) {
+        button.innerHTML = `<span class="btn-icon">${buttonState.icon}</span> ${buttonState.text}`;
+      } else {
+        button.textContent = buttonState.text;
+      }
+
+      // Apply custom options if provided
+      if (options.customText) {
+        if (button.innerHTML.includes('<span class="btn-icon">')) {
+          button.innerHTML = `<span class="btn-icon">${options.icon || buttonState.icon}</span> ${options.customText}`;
+        } else {
+          button.textContent = options.customText;
+        }
+      }
+
+      if (options.disabled !== undefined) {
+        button.disabled = options.disabled;
+      }
+
+      console.log(`🔄 Button '${buttonId}' updated to state: ${state}`);
+      
+    } catch (error) {
+      console.error(`❌ Error updating button '${buttonId}' state:`, error);
+    }
+  }
+
   setupAutoSave() {
     // Auto-save when values change
     const inputs = document.querySelectorAll('input, select');
@@ -316,12 +386,8 @@ class OptionsController {
   }
 
   async testConnection() {
-    const testBtn = document.getElementById('testConnectionBtn');
-    const originalText = testBtn.innerHTML;
-    
     // Optimistic UI: Update UI immediately
-    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
-    testBtn.disabled = true;
+    this.updateButtonState('testConnectionBtn', 'loading');
     
     try {
       const serverUrl = document.getElementById('serverUrl').value;
@@ -338,28 +404,38 @@ class OptionsController {
       
       if (response.ok) {
         const data = await response.json();
+        this.updateButtonState('testConnectionBtn', 'success');
         this.addTestResult(`✅ Connection successful - Connected clients: ${data.clients}`, 'success');
+        
+        // Reset to idle state after showing success
+        setTimeout(() => {
+          this.updateButtonState('testConnectionBtn', 'idle');
+        }, 2000);
       } else {
+        this.updateButtonState('testConnectionBtn', 'error');
         this.addTestResult(`❌ HTTP Error: ${response.status} ${response.statusText}`, 'error');
+        
+        // Reset to idle state after showing error
+        setTimeout(() => {
+          this.updateButtonState('testConnectionBtn', 'idle');
+        }, 2000);
       }
       
     } catch (error) {
       console.error('❌ Connection test error:', error);
+      this.updateButtonState('testConnectionBtn', 'error');
       this.addTestResult(`❌ Connection error: ${error.message}`, 'error');
-    } finally {
-      // Always restore button state
-      testBtn.innerHTML = originalText;
-      testBtn.disabled = false;
+      
+      // Reset to idle state after showing error
+      setTimeout(() => {
+        this.updateButtonState('testConnectionBtn', 'idle');
+      }, 2000);
     }
   }
 
   async testNotification() {
-    const testBtn = document.getElementById('testNotificationBtn');
-    const originalText = testBtn.innerHTML;
-    
     // Optimistic UI: Update UI immediately
-    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
-    testBtn.disabled = true;
+    this.updateButtonState('testNotificationBtn', 'loading');
     
     try {
       await chrome.notifications.create('test-notification', {
@@ -370,48 +446,57 @@ class OptionsController {
         priority: 1
       });
       
+      this.updateButtonState('testNotificationBtn', 'success');
       this.addTestResult('✅ Test notification sent', 'success');
+      
+      // Reset to idle state after showing success
+      setTimeout(() => {
+        this.updateButtonState('testNotificationBtn', 'idle');
+      }, 2000);
       
     } catch (error) {
       console.error('❌ Notification test error:', error);
+      this.updateButtonState('testNotificationBtn', 'error');
       this.addTestResult(`❌ Error sending notification: ${error.message}`, 'error');
-    } finally {
-      // Always restore button state
-      testBtn.innerHTML = originalText;
-      testBtn.disabled = false;
+      
+      // Reset to idle state after showing error
+      setTimeout(() => {
+        this.updateButtonState('testNotificationBtn', 'idle');
+      }, 2000);
     }
   }
 
   async clearHistory() {
-    const clearBtn = document.getElementById('clearHistoryBtn');
-    const originalText = clearBtn.innerHTML;
-    
     if (confirm('Are you sure you want to clear all event history?')) {
       // Optimistic UI: Update UI immediately
-      clearBtn.innerHTML = '<span class="btn-icon">⏳</span> Clearing...';
-      clearBtn.disabled = true;
+      this.updateButtonState('clearHistoryBtn', 'loading');
       
       try {
         await chrome.storage.local.remove(['recentEvents', 'stats']);
+        this.updateButtonState('clearHistoryBtn', 'success');
         this.addTestResult('✅ History cleared successfully', 'success');
+        
+        // Reset to idle state after showing success
+        setTimeout(() => {
+          this.updateButtonState('clearHistoryBtn', 'idle');
+        }, 2000);
+        
       } catch (error) {
         console.error('❌ Clear history error:', error);
+        this.updateButtonState('clearHistoryBtn', 'error');
         this.addTestResult(`❌ Error clearing history: ${error.message}`, 'error');
-      } finally {
-        // Always restore button state
-        clearBtn.innerHTML = originalText;
-        clearBtn.disabled = false;
+        
+        // Reset to idle state after showing error
+        setTimeout(() => {
+          this.updateButtonState('clearHistoryBtn', 'idle');
+        }, 2000);
       }
     }
   }
 
   exportConfig() {
-    const exportBtn = document.getElementById('exportConfigBtn');
-    const originalText = exportBtn.innerHTML;
-    
     // Optimistic UI: Update UI immediately
-    exportBtn.innerHTML = '<span class="btn-icon">⏳</span> Exporting...';
-    exportBtn.disabled = true;
+    this.updateButtonState('exportConfigBtn', 'loading');
     
     try {
       const config = this.collectFormData();
@@ -428,15 +513,23 @@ class OptionsController {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
+      this.updateButtonState('exportConfigBtn', 'success');
       this.addTestResult('✅ Configuration exported successfully', 'success');
+      
+      // Reset to idle state after showing success
+      setTimeout(() => {
+        this.updateButtonState('exportConfigBtn', 'idle');
+      }, 2000);
       
     } catch (error) {
       console.error('❌ Export config error:', error);
+      this.updateButtonState('exportConfigBtn', 'error');
       this.addTestResult(`❌ Error exporting configuration: ${error.message}`, 'error');
-    } finally {
-      // Always restore button state
-      exportBtn.innerHTML = originalText;
-      exportBtn.disabled = false;
+      
+      // Reset to idle state after showing error
+      setTimeout(() => {
+        this.updateButtonState('exportConfigBtn', 'idle');
+      }, 2000);
     }
   }
 
