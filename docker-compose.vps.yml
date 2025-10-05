@@ -5,46 +5,50 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: unifi-protect-notifications
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - UNIFI_HOST=${UNIFI_HOST}
       - UNIFI_API_KEY=${UNIFI_API_KEY}
       - CORS_ORIGIN=${CORS_ORIGIN}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-defaultpassword}
     volumes:
-      - ./logs:/app/logs
-      - ./data:/app/data
+      - unifi-logs:/app/logs
+      - unifi-data:/app/data
     networks:
       - unifi-network
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  # Redis para caching (opcional)
+  # Redis para caching
   redis:
     image: redis:7-alpine
-    container_name: unifi-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     networks:
       - unifi-network
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-defaultpassword}", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
 networks:
   unifi-network:
@@ -52,3 +56,8 @@ networks:
 
 volumes:
   redis-data:
+    driver: local
+  unifi-logs:
+    driver: local
+  unifi-data:
+    driver: local
