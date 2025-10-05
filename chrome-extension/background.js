@@ -120,6 +120,17 @@ class UnifiProtectExtension {
       this.handleNotificationClick(notificationId);
     });
 
+    // Listener para cuando las notificaciones se cierran
+    chrome.notifications.onClosed.addListener((notificationId, byUser) => {
+      console.log('🔔 Notification closed:', notificationId, 'byUser:', byUser);
+      // Clear timeout if notification is closed before auto-close
+      if (this.notificationTimeouts && this.notificationTimeouts.has(notificationId)) {
+        clearTimeout(this.notificationTimeouts.get(notificationId));
+        this.notificationTimeouts.delete(notificationId);
+        console.log('🔔 Notification timeout cleared:', notificationId);
+      }
+    });
+
     // Listener para cuando se inicia el service worker
     chrome.runtime.onStartup.addListener(() => {
       console.log('🚀 Service worker iniciado - reconectando...');
@@ -485,10 +496,26 @@ class UnifiProtectExtension {
         this.playNotificationSound(event.type);
       }
 
-      console.log('🔔 Notificación mostrada:', notificationId);
+      console.log('🔔 Notification shown:', notificationId);
+      
+      // Auto-close notification after 5 seconds (except for critical events)
+      if (event.severity !== 'critical') {
+        const notificationTimeout = setTimeout(async () => {
+          try {
+            await chrome.notifications.clear(notificationId);
+            console.log('🔔 Notification auto-closed:', notificationId);
+          } catch (error) {
+            console.log('Notification already closed or not found:', notificationId);
+          }
+        }, 5000); // 5 seconds
+        
+        // Store timeout reference for potential cleanup
+        this.notificationTimeouts = this.notificationTimeouts || new Map();
+        this.notificationTimeouts.set(notificationId, notificationTimeout);
+      }
       
     } catch (error) {
-      console.error('❌ Error mostrando notificación:', error);
+      console.error('❌ Error showing notification:', error);
     }
   }
 
@@ -642,9 +669,16 @@ class UnifiProtectExtension {
   }
 
   handleNotificationClick(notificationId) {
-    console.log('👆 Notificación clickeada:', notificationId);
+    console.log('👆 Notification clicked:', notificationId);
     
-    // Abrir la página de UniFi Protect o el popup
+    // Clear timeout if notification is clicked before auto-close
+    if (this.notificationTimeouts && this.notificationTimeouts.has(notificationId)) {
+      clearTimeout(this.notificationTimeouts.get(notificationId));
+      this.notificationTimeouts.delete(notificationId);
+      console.log('🔔 Notification timeout cleared:', notificationId);
+    }
+    
+    // Open UniFi Protect page or popup
     chrome.action.openPopup();
   }
 

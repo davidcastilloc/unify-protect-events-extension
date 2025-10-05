@@ -7,7 +7,7 @@ class OptionsController {
       reconnectAttempts: 5,
       notificationsEnabled: true,
       soundEnabled: true,
-      notificationDuration: 10,
+      notificationDuration: 5,
       maxNotifications: 5,
       filtersEnabled: true,
       eventTypes: {
