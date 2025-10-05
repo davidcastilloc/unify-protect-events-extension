@@ -69,81 +69,142 @@ class PopupController {
   }
 
   setupEventListeners() {
-    // Connection buttons
-    document.getElementById('connectBtn').addEventListener('click', () => {
+    // Connection buttons with safe event handling
+    this.safeAddEventListener('connectBtn', 'click', () => {
       this.connect();
     });
     
-    document.getElementById('disconnectBtn').addEventListener('click', () => {
+    this.safeAddEventListener('disconnectBtn', 'click', () => {
       this.disconnect();
     });
     
-    // Toggles
-    document.getElementById('notificationsToggle').addEventListener('change', (e) => {
+    // Toggles with safe event handling
+    this.safeAddEventListener('notificationsToggle', 'change', (e) => {
       this.toggleNotifications(e.target.checked);
     });
     
-    document.getElementById('soundToggle').addEventListener('change', (e) => {
+    this.safeAddEventListener('soundToggle', 'change', (e) => {
       this.toggleSound(e.target.checked);
     });
     
-    // Botones de acción
-    document.getElementById('optionsBtn').addEventListener('click', () => {
-      chrome.runtime.openOptionsPage();
+    // Action buttons with safe event handling
+    this.safeAddEventListener('optionsBtn', 'click', () => {
+      try {
+        chrome.runtime.openOptionsPage();
+      } catch (error) {
+        console.error('❌ Error opening options page:', error);
+        this.showToast('Error opening options', 'error');
+      }
     });
     
-    document.getElementById('testBtn').addEventListener('click', () => {
+    this.safeAddEventListener('testBtn', 'click', () => {
       this.testConnection();
     });
     
     // Listener for messages from background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleBackgroundMessage(message);
+      try {
+        this.handleBackgroundMessage(message);
+      } catch (error) {
+        console.error('❌ Error handling background message:', error);
+      }
     });
   }
 
-  async connect() {
+  // Safe event listener helper
+  safeAddEventListener(elementId, eventType, handler) {
     try {
-      const connectBtn = document.getElementById('connectBtn');
-      
-      connectBtn.disabled = true;
-      connectBtn.textContent = 'Connecting...';
-      
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.addEventListener(eventType, (e) => {
+          try {
+            handler(e);
+          } catch (error) {
+            console.error(`❌ Error in ${elementId} ${eventType} handler:`, error);
+          }
+        });
+      } else {
+        console.warn(`⚠️ Element with id '${elementId}' not found`);
+      }
+    } catch (error) {
+      console.error(`❌ Error adding event listener to '${elementId}':`, error);
+    }
+  }
+
+  async connect() {
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    
+    // Optimistic UI: Update UI immediately
+    connectBtn.disabled = true;
+    connectBtn.textContent = 'Connecting...';
+    disconnectBtn.disabled = true;
+    
+    try {
       const response = await this.sendMessage({ type: 'connect' });
       
       if (response && response.success) {
+        // Success: UI already reflects the optimistic state
         this.updateConnectionStatus({ isConnected: true });
         this.showToast('Connected successfully', 'success');
       } else {
+        // Revert optimistic UI on failure
+        connectBtn.disabled = false;
+        connectBtn.textContent = 'Connect';
+        disconnectBtn.disabled = false;
         this.showToast('Error connecting', 'error');
       }
       
     } catch (error) {
-      console.error('❌ Error conectando:', error);
-      this.showToast('Error connecting: ' + error.message, 'error');
-    } finally {
-      const connectBtn = document.getElementById('connectBtn');
+      console.error('❌ Error connecting:', error);
+      // Revert optimistic UI on error
       connectBtn.disabled = false;
       connectBtn.textContent = 'Connect';
+      disconnectBtn.disabled = false;
+      this.showToast('Error connecting: ' + error.message, 'error');
     }
   }
 
   async disconnect() {
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    
+    // Optimistic UI: Update UI immediately
+    disconnectBtn.disabled = true;
+    disconnectBtn.textContent = 'Disconnecting...';
+    connectBtn.disabled = true;
+    
     try {
       const response = await this.sendMessage({ type: 'disconnect' });
       
       if (response && response.success) {
+        // Success: UI already reflects the optimistic state
         this.updateConnectionStatus({ isConnected: false });
         this.showToast('Disconnected', 'info');
+      } else {
+        // Revert optimistic UI on failure
+        disconnectBtn.disabled = false;
+        disconnectBtn.textContent = 'Disconnect';
+        connectBtn.disabled = false;
+        this.showToast('Error disconnecting', 'error');
       }
       
     } catch (error) {
-      console.error('❌ Error desconectando:', error);
+      console.error('❌ Error disconnecting:', error);
+      // Revert optimistic UI on error
+      disconnectBtn.disabled = false;
+      disconnectBtn.textContent = 'Disconnect';
+      connectBtn.disabled = false;
       this.showToast('Error disconnecting', 'error');
     }
   }
 
   async toggleNotifications(enabled) {
+    const toggle = document.getElementById('notificationsToggle');
+    
+    // Optimistic UI: Update UI immediately
+    toggle.disabled = true;
+    
     try {
       await this.sendMessage({ 
         type: 'toggleNotifications', 
@@ -154,37 +215,55 @@ class PopupController {
       
       this.showToast(
         enabled ? 'Notifications enabled' : 'Notifications disabled',
-        'info'
+        'success'
       );
       
     } catch (error) {
       console.error('❌ Error updating notifications:', error);
+      // Revert optimistic UI on error
+      toggle.checked = !enabled;
+      this.showToast('Error updating notifications', 'error');
+    } finally {
+      // Re-enable toggle after operation
+      toggle.disabled = false;
     }
   }
 
   async toggleSound(enabled) {
+    const toggle = document.getElementById('soundToggle');
+    
+    // Optimistic UI: Update UI immediately
+    toggle.disabled = true;
+    
     try {
       await chrome.storage.sync.set({ soundEnabled: enabled });
       
       this.showToast(
         enabled ? 'Sound enabled' : 'Sound disabled',
-        'info'
+        'success'
       );
       
     } catch (error) {
       console.error('❌ Error updating sound:', error);
+      // Revert optimistic UI on error
+      toggle.checked = !enabled;
+      this.showToast('Error updating sound', 'error');
+    } finally {
+      // Re-enable toggle after operation
+      toggle.disabled = false;
     }
   }
 
   async testConnection() {
+    const testBtn = document.getElementById('testBtn');
+    const originalText = testBtn.innerHTML;
+    
+    // Optimistic UI: Update UI immediately
+    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
+    testBtn.disabled = true;
+    
     try {
-      const testBtn = document.getElementById('testBtn');
-      const originalText = testBtn.innerHTML;
-      
-      testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
-      testBtn.disabled = true;
-      
-      // Simular prueba de conexión
+      // Simulate connection test
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const response = await this.sendMessage({ type: 'getStatus' });
@@ -196,11 +275,11 @@ class PopupController {
       }
       
     } catch (error) {
-      console.error('❌ Error probando conexión:', error);
+      console.error('❌ Error testing connection:', error);
       this.showToast('Test error', 'error');
     } finally {
-      const testBtn = document.getElementById('testBtn');
-      testBtn.innerHTML = '<span class="btn-icon">🧪</span> Test Connection';
+      // Always restore button state
+      testBtn.innerHTML = originalText;
       testBtn.disabled = false;
     }
   }

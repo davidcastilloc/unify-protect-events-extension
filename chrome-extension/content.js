@@ -139,29 +139,61 @@ class UnifiContentScript {
   }
 
   setupPopupEventListeners(popup, event) {
-    // Close button
+    // Close button with error handling
     const closeBtn = popup.querySelector('.popup-close');
-    closeBtn.addEventListener('click', () => {
-      this.removePopup(event.id);
-    });
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          this.removePopup(event.id);
+        } catch (error) {
+          console.error('❌ Error closing popup:', error);
+        }
+      });
+    }
 
-    // Secondary close button
+    // Secondary close button with error handling
     const closeBtnSecondary = popup.querySelector('.popup-btn-secondary');
-    closeBtnSecondary.addEventListener('click', () => {
-      this.removePopup(event.id);
-    });
+    if (closeBtnSecondary) {
+      closeBtnSecondary.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          this.removePopup(event.id);
+        } catch (error) {
+          console.error('❌ Error closing popup:', error);
+        }
+      });
+    }
 
-    // View details button
+    // View details button with error handling
     const detailsBtn = popup.querySelector('.popup-btn-primary');
-    detailsBtn.addEventListener('click', () => {
-      this.showEventDetails(event);
-    });
+    if (detailsBtn) {
+      detailsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          this.showEventDetails(event);
+        } catch (error) {
+          console.error('❌ Error showing event details:', error);
+        }
+      });
+    }
 
-    // Click on header to show details
+    // Click on header to show details with error handling
     const header = popup.querySelector('.popup-header');
-    header.addEventListener('click', () => {
-      this.showEventDetails(event);
-    });
+    if (header) {
+      header.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          this.showEventDetails(event);
+        } catch (error) {
+          console.error('❌ Error showing event details:', error);
+        }
+      });
+    }
   }
 
   removePopup(eventId) {
@@ -256,23 +288,54 @@ class UnifiContentScript {
     // Add modal styles if they don't exist
     this.ensureModalStyles();
     
-    // Add modal event listeners
+    // Add modal event listeners with error handling
     const modalClose = modal.querySelector('.modal-close');
     const modalBtn = modal.querySelector('.modal-btn-primary');
     const modalOverlay = modal.querySelector('.modal-overlay');
     
     const closeModal = () => {
-      modal.classList.remove('modal-visible');
-      setTimeout(() => {
+      try {
+        modal.classList.remove('modal-visible');
+        setTimeout(() => {
+          if (modal.parentNode) {
+            modal.remove();
+          }
+        }, 300);
+      } catch (error) {
+        console.error('❌ Error closing modal:', error);
+        // Force remove if normal close fails
         if (modal.parentNode) {
           modal.remove();
         }
-      }, 300);
+      }
     };
     
-    modalClose.addEventListener('click', closeModal);
-    modalBtn.addEventListener('click', closeModal);
-    modalOverlay.addEventListener('click', closeModal);
+    // Safe event listener attachment with null checks
+    if (modalClose) {
+      modalClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeModal();
+      });
+    }
+    
+    if (modalBtn) {
+      modalBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeModal();
+      });
+    }
+    
+    if (modalOverlay) {
+      modalOverlay.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.target === modalOverlay) {
+          closeModal();
+        }
+      });
+    }
     
     document.body.appendChild(modal);
     

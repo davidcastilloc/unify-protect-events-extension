@@ -71,54 +71,80 @@ class OptionsController {
   }
 
   setupEventListeners() {
-    // Botones principales
-    document.getElementById('saveBtn').addEventListener('click', () => {
+    // Main buttons with safe event handling
+    this.safeAddEventListener('saveBtn', 'click', () => {
       this.saveSettings();
     });
     
-    document.getElementById('resetBtn').addEventListener('click', () => {
+    this.safeAddEventListener('resetBtn', 'click', () => {
       this.resetSettings();
     });
     
-    // Botones de prueba
-    document.getElementById('testConnectionBtn').addEventListener('click', () => {
+    // Test buttons with safe event handling
+    this.safeAddEventListener('testConnectionBtn', 'click', () => {
       this.testConnection();
     });
     
-    document.getElementById('testNotificationBtn').addEventListener('click', () => {
+    this.safeAddEventListener('testNotificationBtn', 'click', () => {
       this.testNotification();
     });
     
-    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+    this.safeAddEventListener('clearHistoryBtn', 'click', () => {
       this.clearHistory();
     });
     
-    document.getElementById('exportConfigBtn').addEventListener('click', () => {
+    this.safeAddEventListener('exportConfigBtn', 'click', () => {
       this.exportConfig();
     });
     
-    document.getElementById('importConfigBtn').addEventListener('click', () => {
+    this.safeAddEventListener('importConfigBtn', 'click', () => {
       this.importConfig();
     });
     
-    // Links del footer
-    document.getElementById('helpLink').addEventListener('click', (e) => {
+    // Footer links with safe event handling
+    this.safeAddEventListener('helpLink', 'click', (e) => {
       e.preventDefault();
       this.showHelp();
     });
     
-    document.getElementById('feedbackLink').addEventListener('click', (e) => {
+    this.safeAddEventListener('feedbackLink', 'click', (e) => {
       e.preventDefault();
       this.showFeedback();
     });
     
-    // File input for importing
-    document.getElementById('importFileInput').addEventListener('change', (e) => {
-      this.handleImportFile(e.target.files[0]);
+    // File input for importing with safe event handling
+    this.safeAddEventListener('importFileInput', 'change', (e) => {
+      try {
+        this.handleImportFile(e.target.files[0]);
+      } catch (error) {
+        console.error('❌ Error handling file import:', error);
+        this.showToast('Error importing file', 'error');
+      }
     });
     
-    // Auto-save en cambios
+    // Auto-save on changes
     this.setupAutoSave();
+  }
+
+  // Safe event listener helper
+  safeAddEventListener(elementId, eventType, handler) {
+    try {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.addEventListener(eventType, (e) => {
+          try {
+            handler(e);
+          } catch (error) {
+            console.error(`❌ Error in ${elementId} ${eventType} handler:`, error);
+            this.showToast(`Error in ${elementId} action`, 'error');
+          }
+        });
+      } else {
+        console.warn(`⚠️ Element with id '${elementId}' not found`);
+      }
+    } catch (error) {
+      console.error(`❌ Error adding event listener to '${elementId}':`, error);
+    }
   }
 
   setupAutoSave() {
@@ -293,29 +319,48 @@ class OptionsController {
     const testBtn = document.getElementById('testConnectionBtn');
     const originalText = testBtn.innerHTML;
     
+    // Optimistic UI: Update UI immediately
     testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
     testBtn.disabled = true;
     
     try {
       const serverUrl = document.getElementById('serverUrl').value;
-      const response = await fetch(`${serverUrl}/health`);
+      
+      // Validate URL before making request
+      if (!serverUrl || !serverUrl.trim()) {
+        throw new Error('Server URL is required');
+      }
+      
+      const response = await fetch(`${serverUrl}/health`, {
+        method: 'GET',
+        timeout: 10000 // 10 second timeout
+      });
       
       if (response.ok) {
         const data = await response.json();
         this.addTestResult(`✅ Connection successful - Connected clients: ${data.clients}`, 'success');
       } else {
-        this.addTestResult(`❌ Error HTTP: ${response.status}`, 'error');
+        this.addTestResult(`❌ HTTP Error: ${response.status} ${response.statusText}`, 'error');
       }
       
     } catch (error) {
-      this.addTestResult(`❌ Error de conexión: ${error.message}`, 'error');
+      console.error('❌ Connection test error:', error);
+      this.addTestResult(`❌ Connection error: ${error.message}`, 'error');
     } finally {
+      // Always restore button state
       testBtn.innerHTML = originalText;
       testBtn.disabled = false;
     }
   }
 
   async testNotification() {
+    const testBtn = document.getElementById('testNotificationBtn');
+    const originalText = testBtn.innerHTML;
+    
+    // Optimistic UI: Update UI immediately
+    testBtn.innerHTML = '<span class="btn-icon">⏳</span> Testing...';
+    testBtn.disabled = true;
+    
     try {
       await chrome.notifications.create('test-notification', {
         type: 'basic',
@@ -328,22 +373,46 @@ class OptionsController {
       this.addTestResult('✅ Test notification sent', 'success');
       
     } catch (error) {
+      console.error('❌ Notification test error:', error);
       this.addTestResult(`❌ Error sending notification: ${error.message}`, 'error');
+    } finally {
+      // Always restore button state
+      testBtn.innerHTML = originalText;
+      testBtn.disabled = false;
     }
   }
 
   async clearHistory() {
+    const clearBtn = document.getElementById('clearHistoryBtn');
+    const originalText = clearBtn.innerHTML;
+    
     if (confirm('Are you sure you want to clear all event history?')) {
+      // Optimistic UI: Update UI immediately
+      clearBtn.innerHTML = '<span class="btn-icon">⏳</span> Clearing...';
+      clearBtn.disabled = true;
+      
       try {
         await chrome.storage.local.remove(['recentEvents', 'stats']);
         this.addTestResult('✅ History cleared successfully', 'success');
       } catch (error) {
+        console.error('❌ Clear history error:', error);
         this.addTestResult(`❌ Error clearing history: ${error.message}`, 'error');
+      } finally {
+        // Always restore button state
+        clearBtn.innerHTML = originalText;
+        clearBtn.disabled = false;
       }
     }
   }
 
   exportConfig() {
+    const exportBtn = document.getElementById('exportConfigBtn');
+    const originalText = exportBtn.innerHTML;
+    
+    // Optimistic UI: Update UI immediately
+    exportBtn.innerHTML = '<span class="btn-icon">⏳</span> Exporting...';
+    exportBtn.disabled = true;
+    
     try {
       const config = this.collectFormData();
       const configJson = JSON.stringify(config, null, 2);
@@ -362,7 +431,12 @@ class OptionsController {
       this.addTestResult('✅ Configuration exported successfully', 'success');
       
     } catch (error) {
+      console.error('❌ Export config error:', error);
       this.addTestResult(`❌ Error exporting configuration: ${error.message}`, 'error');
+    } finally {
+      // Always restore button state
+      exportBtn.innerHTML = originalText;
+      exportBtn.disabled = false;
     }
   }
 
