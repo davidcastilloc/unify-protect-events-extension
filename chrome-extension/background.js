@@ -535,16 +535,15 @@ class UnifiProtectExtension {
   getEventTitle(event) {
     // Base titles for each type
     const titleMap = {
-      'motion': 'Movimiento Detectado',
-      'person': 'Persona Detectada',
+      'motion': 'Motion Detected',
+      'person': 'Person Detected',
       'vehicle': 'Vehicle Detected',
-      'package': 'Paquete Detectado',
-      'doorbell': 'Timbre Presionado',
+      'package': 'Package Detected',
+      'doorbell': 'Doorbell Pressed',
       'smart_detect': 'Smart Detection',
-      'sensor': 'Evento de Sensor'
+      'sensor': 'Sensor Event'
     };
-    
-    let title = titleMap[event.type] || 'Evento UniFi';
+    let title = titleMap[event.type] || 'Event UniFi';
     
     // Add additional context based on metadata
     if (event.metadata) {
@@ -566,7 +565,7 @@ class UnifiProtectExtension {
         if (event.metadata.batteryLevel !== undefined) {
           title = 'Low Battery';
         } else if (event.metadata.alarmType) {
-          title = 'Alarma Activada';
+          title = 'Alarm Activated';
         } else if (event.description.includes('water')) {
           title = 'Water Leak';
         } else if (event.description.includes('manipulation')) {
