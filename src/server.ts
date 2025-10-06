@@ -91,6 +91,36 @@ class UnifiNotificationServer {
       });
     });
 
+    // 🚨 ENDPOINT DE MONITOREO CRÍTICO
+    this.app.get('/critical-status', (req, res) => {
+      try {
+        const unifiStatus = this.unifiClient.getCriticalStatus();
+        const wsClients = this.wsServer.getConnectedClients();
+        
+        res.json({
+          status: 'critical-system',
+          timestamp: new Date().toISOString(),
+          unifiProtect: unifiStatus,
+          webSocketClients: {
+            count: wsClients.length,
+            clients: wsClients.map(client => ({
+              id: client.id,
+              lastSeen: client.lastSeen,
+              isHealthy: Date.now() - client.lastSeen.getTime() < 10000 // 10 segundos
+            }))
+          },
+          overallHealth: this.unifiClient.isConnectionHealthy() && wsClients.length > 0
+        });
+      } catch (error) {
+        logger.error('Error obteniendo estado crítico:', error);
+        res.status(500).json({ 
+          status: 'error',
+          message: 'Error obteniendo estado crítico del sistema',
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
     // Generar token para cliente
     this.app.post('/auth/token', (req, res) => {
       const { clientId } = req.body;
@@ -151,7 +181,7 @@ class UnifiNotificationServer {
     const config = {
       host: process.env.UNIFI_HOST || '192.168.1.100',
       port: parseInt(process.env.UNIFI_PORT || '443'),
-      apiKey: process.env.UNIFI_API_KEY || '',
+      apiKey: process.env.UNIFI_API_KEY || '_uxtYNCm6QusONhy6RM84H8UE4aOmZ8Y',
       sslVerify: process.env.UNIFI_SSL_VERIFY === 'true'
     };
 

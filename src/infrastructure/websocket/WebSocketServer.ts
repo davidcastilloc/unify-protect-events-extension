@@ -136,9 +136,10 @@ export class WebSocketServer {
       }
     });
 
-    // Ping/pong para mantener conexión viva
+    // 🚨 PING/PONG CRÍTICO PARA MANTENER CONEXIÓN VIVA
     ws.on('pong', () => {
       client.lastSeen = new Date();
+      console.log(`💓 Pong crítico recibido de cliente ${client.id} - conexión saludable`);
     });
   }
 
@@ -240,12 +241,13 @@ export class WebSocketServer {
     setInterval(() => {
       this.clients.forEach((client) => {
         if (client.socket.readyState === 1) { // WebSocket.OPEN
-          // Verificar si el cliente respondió al último ping
+          // 🚨 SISTEMA CRÍTICO: TIMEOUT ULTRA-AGRESIVO
           const timeSinceLastSeen = Date.now() - client.lastSeen.getTime();
-          const timeoutThreshold = parseInt(process.env.WS_CONNECTION_TIMEOUT || '90000');
-          if (timeSinceLastSeen > timeoutThreshold) {
-            console.log(`⏰ Cliente ${client.id} inactivo (${Math.round(timeSinceLastSeen/1000)}s), cerrando conexión`);
-            client.socket.close(1000, 'Connection timeout');
+          const criticalTimeoutThreshold = parseInt(process.env.WS_CRITICAL_TIMEOUT || '10000'); // 10 segundos
+          
+          if (timeSinceLastSeen > criticalTimeoutThreshold) {
+            console.log(`🚨 Cliente crítico ${client.id} inactivo (${Math.round(timeSinceLastSeen/1000)}s), cerrando conexión inmediatamente`);
+            client.socket.close(1000, 'Critical connection timeout');
             this.clients.delete(client.id);
             if (this.notificationService) {
               this.notificationService.removeClient(client.id);
@@ -253,8 +255,9 @@ export class WebSocketServer {
             return;
           }
           
-          // Enviar ping para mantener conexión viva
+          // 🚨 PING ULTRA-FRECUENTE PARA SISTEMA CRÍTICO
           client.socket.ping();
+          console.log(`💓 Ping crítico enviado a cliente ${client.id}`);
         } else {
           // Cliente desconectado, removerlo
           console.log(`🧹 Limpiando cliente desconectado: ${client.id}`);
@@ -264,7 +267,7 @@ export class WebSocketServer {
           }
         }
       });
-    }, parseInt(process.env.WS_PING_INTERVAL || '30000')); // Ping cada 30 segundos por defecto
+    }, parseInt(process.env.WS_CRITICAL_PING_INTERVAL || '3000')); // Ping cada 3 segundos para sistema crítico
   }
 }
 

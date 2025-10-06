@@ -190,6 +190,23 @@ export class UnifiProtectClient implements IUnifiProtectClient {
   private apiKey: string;
   private baseUrl: string;
   private cameraCache: Record<string, UnifiProtectCamera> = {};
+  
+  // 🚨 SISTEMA CRÍTICO - CONEXIÓN ULTRA-ROBUSTA
+  private heartbeatInterval?: NodeJS.Timeout;
+  private lastPongReceived = Date.now();
+  private heartbeatTimeout = parseInt(process.env.UNIFI_HEARTBEAT_TIMEOUT || '5000'); // 5 segundos
+  private heartbeatIntervalMs = parseInt(process.env.UNIFI_HEARTBEAT_INTERVAL || '2000'); // Cada 2 segundos
+  private isHeartbeatHealthy = true;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = parseInt(process.env.UNIFI_MAX_RECONNECT_ATTEMPTS || '50'); // Muchos intentos
+  private baseReconnectDelay = parseInt(process.env.UNIFI_BASE_RECONNECT_DELAY || '100'); // 100ms base
+  private maxReconnectDelay = parseInt(process.env.UNIFI_MAX_RECONNECT_DELAY || '5000'); // Máximo 5s
+  private circuitBreakerState: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
+  private circuitBreakerFailures = 0;
+  private circuitBreakerThreshold = parseInt(process.env.UNIFI_CIRCUIT_BREAKER_THRESHOLD || '10');
+  private circuitBreakerTimeout = parseInt(process.env.UNIFI_CIRCUIT_BREAKER_TIMEOUT || '60000'); // 1 minuto
+  private criticalEventBuffer: UnifiEvent[] = [];
+  private maxBufferSize = parseInt(process.env.UNIFI_EVENT_BUFFER_SIZE || '500');
 
   constructor(config: UnifiProtectConfig) {
     this.config = config;
@@ -213,9 +230,9 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       (response: any) => response,
       async (error: any) => {
         if (error.response?.status === 401) {
-          console.log('❌ API Key inválida o expirada');
+          console.log('❌ Invalid or expired API Key');
           console.log(error.response);
-          throw new Error('API Key inválida o expirada');
+          throw new Error('Invalid or expired API Key');
         }
         return Promise.reject(error);
       }
@@ -228,55 +245,55 @@ export class UnifiProtectClient implements IUnifiProtectClient {
 
   async connect(): Promise<void> {
     try {
-      console.log(`🔗 Conectando a UniFi Protect en ${this.config.host}:${this.config.port || 443}`);
+      console.log(`🔗 Connecting to UniFi Protect at ${this.config.host}:${this.config.port || 443}`);
       console.log(`🔑 API Key: ${this.apiKey.substring(0, 8)}...`);
       
-      console.log('🚀 Conectando con UniFi Protect...');
+      console.log('🚀 Connecting to UniFi Protect...');
       await this.connectReal();
       
       this.isConnected = true;
       
     } catch (error) {
-      console.error('❌ Error en conexión:', error);
+      console.error('❌ Connection error:', error);
       throw error;
     }
   }
 
   private async connectReal(): Promise<void> {
     try {
-      console.log('🔗 Iniciando conexión con UniFi Protect...');
+      console.log('🔗 Starting connection to UniFi Protect...');
       
       await this.validateApiKey();
       
       const appInfo = await this.getApplicationInfo();
-      console.log(`📊 Versión de aplicación: ${appInfo.applicationVersion}`);
+      console.log(`📊 Application version: ${appInfo.applicationVersion}`);
       
       // Llenar el cache de cámaras para obtener nombres reales
       await this.loadCameraCache(); 
       
       await this.connectWebSocket();
       
-      console.log('✅ Conexión establecida con UniFi Protect');
+      console.log('✅ Connection established with UniFi Protect');
       
     } catch (error) {
-      console.error('❌ Error en conexión:', error);
+      console.error('❌ Connection error:', error);
       throw error;
     }
   }
 
   private async validateApiKey(): Promise<void> {
     try {
-      console.log('🔐 Validando API Key...');
+      console.log('🔐 Validating API Key...');
       const response = await this.httpClient.get('/proxy/protect/integration/v1/liveviews');
       
       if (response.status === 200) {
-        console.log('✅ API Key válida');
+        console.log('✅ API Key valid');
       } else {
-        throw new Error(`API Key inválida: ${response.status}`);
+        throw new Error(`Invalid API Key: ${response.status}`);
       }
     } catch (error: any) {
-      console.error('❌ Error validando API Key:', error);
-      throw new Error('API Key inválida o expirada');
+      console.error('❌ Error validating API Key:', error);
+      throw new Error('Invalid or expired API Key');
     }
   }
 
@@ -285,7 +302,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       const response = await this.httpClient.get('/proxy/protect/integration/v1/nvrs');
       return { applicationVersion: response.data.version || 'unknown' };
     } catch (error) {
-      console.error('❌ Error obteniendo información de aplicación:', error);
+      console.error('❌ Error getting application information:', error);
       return { applicationVersion: 'unknown' };
     }
   }
@@ -300,16 +317,16 @@ export class UnifiProtectClient implements IUnifiProtectClient {
               return acc;
           }, {} as Record<string, UnifiProtectCamera>);
           
-          console.log(`📹 Cache de cámaras cargado: ${cameras.length} dispositivos.`);
+          console.log(`📹 Camera cache loaded: ${cameras.length} devices.`);
       } catch (error) {
-          console.error('❌ Error cargando cache de cámaras:', error);
+          console.error('❌ Error loading camera cache:', error);
       }
   }
 
   private async connectWebSocket(): Promise<void> {
     try {
       const wsUrl = `wss://${this.config.host}/proxy/protect/integration/v1/subscribe/events`;
-      console.log(`🔌 Conectando WebSocket: ${wsUrl}`);
+      console.log(`🔌 Connecting WebSocket: ${wsUrl}`);
       
       const wsOptions: any = {
         headers: {
@@ -323,48 +340,69 @@ export class UnifiProtectClient implements IUnifiProtectClient {
 
       const connectionTimeout = setTimeout(() => {
         if (this.wsClient && this.wsClient.readyState === WebSocket.CONNECTING) {
-          console.log('⏰ Timeout conectando a UniFi Protect WebSocket');
+          console.log('⏰ Timeout connecting to UniFi Protect WebSocket');
           this.wsClient.close();
         }
       }, parseInt(process.env.UNIFI_WS_HANDSHAKE_TIMEOUT || '15000'));
 
       this.wsClient.on('open', () => {
         clearTimeout(connectionTimeout);
-        console.log('✅ WebSocket conectado exitosamente');
-        console.log('🔔 Esperando eventos de UniFi Protect...');
+        console.log('✅ WebSocket connected successfully');
+        console.log('🔔 Waiting for UniFi Protect events...');
+        
+        // 🚨 INICIAR HEARTBEAT ULTRA-AGRESIVO PARA SISTEMA CRÍTICO
+        this.startCriticalHeartbeat();
+        
+        // 🚨 PROCESAR EVENTOS BUFFEREADOS SI LOS HAY
+        this.processBufferedEvents();
+        
+        // Resetear contadores de reconexión en conexión exitosa
+        this.reconnectAttempts = 0;
+        this.circuitBreakerFailures = 0;
+        this.circuitBreakerState = 'CLOSED';
       });
 
       this.wsClient.on('message', (data: WebSocket.Data) => {
         try {
+          // 🚨 ACTUALIZAR TIMESTAMP EN CADA MENSAJE RECIBIDO
+          this.lastPongReceived = Date.now();
+          this.isHeartbeatHealthy = true;
+          
           const message = JSON.parse(data.toString());
           const updateMessage: UnifiProtectUpdateMessage = message;
           this.handleWebSocketMessage(updateMessage);
         } catch (error) {
-          console.error('❌ Error procesando mensaje WebSocket:', error);
+          console.error('❌ Error processing WebSocket message:', error);
         }
+      });
+
+      // 🚨 MANEJAR RESPUESTAS PONG DEL HEARTBEAT
+      this.wsClient.on('pong', () => {
+        this.lastPongReceived = Date.now();
+        this.isHeartbeatHealthy = true;
+        console.log('💓 Pong recibido - conexión UniFi Protect saludable');
       });
 
       this.wsClient.on('error', (error) => {
         clearTimeout(connectionTimeout);
-        console.error('❌ Error en WebSocket:', error);
+        console.error('❌ WebSocket error:', error);
       });
 
       this.wsClient.on('close', (code: number, reason: string) => {
         clearTimeout(connectionTimeout);
-        console.log(`🔌 WebSocket desconectado - Código: ${code}, Razón: ${reason}`);
+        console.log(`🔌 WebSocket disconnected - Code: ${code}, Reason: ${reason}`);
+        
+        // 🚨 DETENER HEARTBEAT INMEDIATAMENTE
+        this.stopHeartbeat();
         
         if (code !== 1000 && this.isConnected) {
-          console.log('🔄 Reconectando en 10 segundos...');
-          setTimeout(() => {
-            if (this.isConnected) {
-              this.connectWebSocket();
-            }
-          }, parseInt(process.env.UNIFI_WS_RECONNECT_DELAY || '10000'));
+          // 🚨 RECONEXIÓN INSTANTÁNEA PARA SISTEMA CRÍTICO
+          this.scheduleCriticalReconnect();
         }
       });
 
     } catch (error) {
-      console.error('❌ Error conectando WebSocket:', error);
+      console.error('❌ Error connecting WebSocket:', error);
     }
   }
 
@@ -379,7 +417,7 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       const event = message.item as UnifiProtectEvent;
       this.processUnifiEvent(event);
     } else {
-      console.log('ℹ️ Mensaje no es un evento - tipo:', message.type, 'modelKey:', message.item?.modelKey);
+      console.log('ℹ️ Message is not an event - type:', message.type, 'modelKey:', message.item?.modelKey);
     }
   }
 
@@ -408,7 +446,14 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       metadata: this.getEventMetadata(event)
     };
     
-    this.eventCallback(unifiEvent);
+    // 🚨 SISTEMA CRÍTICO: BUFFEREO SI NO ESTÁ CONECTADO
+    if (!this.isConnectionHealthy()) {
+      console.log('🚨 Conexión no saludable - bufferando evento crítico');
+      this.addToCriticalBuffer(unifiEvent);
+    } else {
+      // Enviar evento inmediatamente si la conexión está saludable
+      this.eventCallback(unifiEvent);
+    }
   }
 
   // ----------------------------------------------------------------------
@@ -463,24 +508,24 @@ export class UnifiProtectClient implements IUnifiProtectClient {
       }
       
       const deviceTypeMap: { [key: string]: string } = {
-          'ring': 'Timbre UniFi',
-          'sensorExtremeValue': 'Sensor UniFi',
-          'sensorWaterLeak': 'Sensor de Agua UniFi',
-          'sensorTamper': 'Sensor Anti-manipulación UniFi',
-          'sensorBatteryLow': 'Sensor UniFi (Batería Baja)',
-          'sensorAlarm': 'Sensor de Alarma UniFi',
-          'sensorOpen': 'Sensor de Apertura UniFi',
-          'sensorClosed': 'Sensor de Cierre UniFi',
-          'sensorMotion': 'Sensor de Movimiento UniFi',
-          'lightMotion': 'Luz UniFi',
-          'cameraMotion': 'Cámara UniFi (Movimiento)',
-          'cameraSmartDetectAudio': 'Cámara - Audio Inteligente',
-          'cameraSmartDetectZone': 'Cámara - Detección por Zona',
-          'smartDetectZone': 'Cámara - Detección por Zona',
-          'cameraSmartDetectLine': 'Cámara - Cruce de Línea',
-          'cameraSmartDetectLoiter': 'Cámara - Merodeo',
+          'ring': 'UniFi Doorbell',
+          'sensorExtremeValue': 'UniFi Sensor',
+          'sensorWaterLeak': 'UniFi Water Sensor',
+          'sensorTamper': 'UniFi Tamper Sensor',
+          'sensorBatteryLow': 'UniFi Sensor (Low Battery)',
+          'sensorAlarm': 'UniFi Alarm Sensor',
+          'sensorOpen': 'UniFi Open Sensor',
+          'sensorClosed': 'UniFi Closed Sensor',
+          'sensorMotion': 'UniFi Motion Sensor',
+          'lightMotion': 'UniFi Light',
+          'cameraMotion': 'UniFi Camera (Motion)',
+          'cameraSmartDetectAudio': 'Camera - Smart Audio',
+          'cameraSmartDetectZone': 'Camera - Zone Detection',
+          'smartDetectZone': 'Camera - Zone Detection',
+          'cameraSmartDetectLine': 'Camera - Line Crossing',
+          'cameraSmartDetectLoiter': 'Camera - Loitering',
       };
-      return deviceTypeMap[event.type] || 'Dispositivo UniFi';
+      return deviceTypeMap[event.type] || 'UniFi Device';
   }
 
   private getDeviceType(event: UnifiProtectEvent): string {
@@ -575,13 +620,13 @@ private getEventDescription(event: UnifiProtectEvent): string {
     
     switch (baseEvent.type) {
         case 'ring':
-            description = '🔔 ¡Timbre presionado!';
+            description = '🔔 Doorbell pressed!';
             break;
 
         case 'cameraMotion':
             const motionEvent = event as CameraMotionEvent;
             const motionScore = motionEvent.score ?? 'N/A';
-            description = `Movimiento detectado por la cámara. Confianza: ${motionScore}%.`;
+            description = `Motion detected by camera. Confidence: ${motionScore}%.`;
             break;
             
         case 'cameraSmartDetectZone':
@@ -595,7 +640,7 @@ private getEventDescription(event: UnifiProtectEvent): string {
             // 1. Manejo de SmartDetectZone
             if (baseEvent.type === 'cameraSmartDetectZone' || baseEvent.type === 'smartDetectZone') {
                 
-                let detectedTypes = 'Detección';
+                let detectedTypes = 'Detection';
                 
                 // Usamos smartEventData (que es 'any') para acceder a la propiedad
                 if (smartEventData.smartDetectTypes && smartEventData.smartDetectTypes.length > 0) {
@@ -603,54 +648,54 @@ private getEventDescription(event: UnifiProtectEvent): string {
                     detectedTypes = smartEventData.smartDetectTypes.map((t: string) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
                 }
                 
-                detail = `Detección de ${detectedTypes}.`;
+                detail = `Detection of ${detectedTypes}.`;
 
                 // Intentamos añadir la zona si existe
                 if (smartEventData.zone) {
-                    detail += ` En la Zona: ${smartEventData.zone}.`;
+                    detail += ` In Zone: ${smartEventData.zone}.`;
                 } else {
-                    detail += ` (En área de detección).`;
+                    detail += ` (In detection area).`;
                 }
 
             // 2. Manejo de SmartDetectLine
             } else if (baseEvent.type === 'cameraSmartDetectLine') {
                 const lineEvent = event as CameraSmartDetectLineEvent;
-                detail = `Línea cruzada: ${lineEvent.line ?? 'N/A'}. Dirección: ${lineEvent.direction ?? 'N/A'}.`;
+                detail = `Line crossed: ${lineEvent.line ?? 'N/A'}. Direction: ${lineEvent.direction ?? 'N/A'}.`;
 
             // 3. Manejo de SmartDetectLoiter
             } else if (baseEvent.type === 'cameraSmartDetectLoiter') {
                 // Usamos smartEventData (que es 'any') para acceder a la duración
-                detail = `(Merodeo detectado por ${smartEventData.duration ?? 'N/A'} segundos).`;
+                detail = `(Loitering detected for ${smartEventData.duration ?? 'N/A'} seconds).`;
             }
             
-            description = `🚨 Detección Inteligente ${detail} Confianza: ${score}%.`;
+            description = `🚨 Smart Detection ${detail} Confidence: ${score}%.`;
             break;
 
         case 'cameraSmartDetectAudio':
             const audioEvent = event as CameraSmartDetectAudioEvent;
-            description = `🔊 Audio detectado: ${audioEvent.audioType ?? 'Desconocido'}. Confianza: ${audioEvent.score ?? 'N/A'}%.`;
+            description = `🔊 Audio detected: ${audioEvent.audioType ?? 'Unknown'}. Confidence: ${audioEvent.score ?? 'N/A'}%.`;
             break;
             
         case 'sensorWaterLeak':
-            description = '💧 ¡ALERTA! Fuga de agua detectada.';
+            description = '💧 ALERT! Water leak detected.';
             break;
             
         case 'sensorBatteryLow':
             const batteryEvent = event as SensorBatteryLowEvent;
-            description = `🔋 Batería baja. Nivel: ${batteryEvent.batteryLevel ?? 'N/A'}%.`;
+            description = `🔋 Low battery. Level: ${batteryEvent.batteryLevel ?? 'N/A'}%.`;
             break;
 
         default:
             const defaultDescriptions: { [key: string]: string } = {
-                'sensorExtremeValue': `Valor extremo detectado: ${'value' in event ? (event as SensorExtremeValueEvent).value : 'N/A'}`,
-                'sensorTamper': 'Manipulación del sensor detectada',
-                'sensorAlarm': `Alarma activada: ${'alarmType' in event ? (event as SensorAlarmEvent).alarmType : 'N/A'}`,
-                'sensorOpen': 'Sensor abierto',
-                'sensorClosed': 'Sensor cerrado',
-                'sensorMotion': 'Movimiento detectado por sensor',
-                'lightMotion': 'Movimiento detectado por luz'
+                'sensorExtremeValue': `Extreme value detected: ${'value' in event ? (event as SensorExtremeValueEvent).value : 'N/A'}`,
+                'sensorTamper': 'Sensor tampering detected',
+                'sensorAlarm': `Alarm activated: ${'alarmType' in event ? (event as SensorAlarmEvent).alarmType : 'N/A'}`,
+                'sensorOpen': 'Sensor opened',
+                'sensorClosed': 'Sensor closed',
+                'sensorMotion': 'Motion detected by sensor',
+                'lightMotion': 'Motion detected by light'
             };
-            description = defaultDescriptions[baseEvent.type] || `Evento desconocido: ${baseEvent.type}`;
+            description = defaultDescriptions[baseEvent.type] || `Unknown event: ${baseEvent.type}`;
             break;
     }
     
@@ -681,17 +726,20 @@ private getEventDescription(event: UnifiProtectEvent): string {
     this.isConnected = false;
     this.eventCallback = undefined;
     
+    // 🚨 DETENER HEARTBEAT CRÍTICO
+    this.stopHeartbeat();
+    
     if (this.wsClient) {
       this.wsClient.close();
       this.wsClient = undefined;
     }
     
-    console.log('Desconectado de UniFi Protect');
+    console.log('Disconnected from UniFi Protect');
   }
 
   async getCameras(): Promise<CameraInfo[]> {
     if (!this.isConnected) {
-      throw new Error('No conectado a UniFi Protect');
+      throw new Error('Not connected to UniFi Protect');
     }
 
     try {
@@ -700,29 +748,200 @@ private getEventDescription(event: UnifiProtectEvent): string {
       
       return cameras.map((camera): CameraInfo => ({
         id: camera.id,
-        name: camera.name || `Cámara ${camera.id}`,
+        name: camera.name || `Camera ${camera.id}`,
         type: camera.modelKey || 'Unknown',
         location: undefined
       }));
       
     } catch (error) {
-      console.error('❌ Error obteniendo cámaras:', error);
-      throw new Error('No se pudieron obtener las cámaras de UniFi Protect');
+      console.error('❌ Error getting cameras:', error);
+      throw new Error('Could not get cameras from UniFi Protect');
     }
   }
 
   subscribeToEvents(callback: (event: UnifiEvent) => void): void {
     if (!this.isConnected) {
-      throw new Error('No conectado a UniFi Protect');
+      throw new Error('Not connected to UniFi Protect');
     }
 
     this.eventCallback = callback;
-    console.log('🔔 Suscrito a eventos de UniFi Protect');
+    console.log('🔔 Subscribed to UniFi Protect events');
   }
 
   unsubscribeFromEvents(): void {
     this.eventCallback = undefined;
-    console.log('Desuscrito de eventos de UniFi Protect');
+    console.log('Unsubscribed from UniFi Protect events');
+  }
+
+  // ----------------------------------------------------------------------
+  // --- SISTEMA CRÍTICO - MÉTODOS DE CONEXIÓN ULTRA-ROBUSTA ---
+  // ----------------------------------------------------------------------
+
+  /**
+   * 🚨 HEARTBEAT ULTRA-AGRESIVO PARA SISTEMA CRÍTICO
+   * Ping cada 2 segundos, timeout de 5 segundos
+   */
+  private startCriticalHeartbeat(): void {
+    // Limpiar heartbeat anterior si existe
+    this.stopHeartbeat();
+    
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.wsClient || this.wsClient.readyState !== WebSocket.OPEN) {
+        console.log('💔 WebSocket UniFi no está abierto - deteniendo heartbeat');
+        this.stopHeartbeat();
+        return;
+      }
+
+      // Verificar si recibimos respuesta recientemente
+      const timeSinceLastPong = Date.now() - this.lastPongReceived;
+      
+      if (timeSinceLastPong > this.heartbeatTimeout) {
+        console.log(`💔 Heartbeat UniFi perdido (${Math.round(timeSinceLastPong/1000)}s sin respuesta) - forzando reconexión crítica`);
+        this.isHeartbeatHealthy = false;
+        this.circuitBreakerFailures++;
+        
+        // Cerrar conexión para forzar reconexión inmediata
+        this.wsClient.close(1000, 'Critical heartbeat timeout');
+        return;
+      }
+
+      // Enviar ping para mantener conexión viva
+      try {
+        this.wsClient.ping();
+        console.log('💓 Ping crítico enviado a UniFi Protect');
+      } catch (error) {
+        console.error('❌ Error enviando ping crítico:', error);
+        this.isHeartbeatHealthy = false;
+        this.circuitBreakerFailures++;
+      }
+    }, this.heartbeatIntervalMs);
+    
+    console.log(`💓 Heartbeat crítico iniciado - ping cada ${this.heartbeatIntervalMs/1000}s, timeout ${this.heartbeatTimeout/1000}s`);
+  }
+
+  /**
+   * 🚨 DETENER HEARTBEAT CRÍTICO
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
+      console.log('💓 Heartbeat crítico detenido');
+    }
+  }
+
+  /**
+   * 🚨 RECONEXIÓN INSTANTÁNEA PARA SISTEMA CRÍTICO
+   * Con backoff exponencial pero muy agresivo
+   */
+  private scheduleCriticalReconnect(): void {
+    if (this.circuitBreakerState === 'OPEN') {
+      console.log('🔴 Circuit breaker abierto - esperando para reintentar...');
+      return;
+    }
+
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('❌ Máximo de intentos de reconexión crítica alcanzado. Activando circuit breaker...');
+      this.enableCriticalCircuitBreaker();
+      return;
+    }
+
+    // Backoff exponencial pero muy agresivo para sistema crítico
+    const delay = Math.min(
+      this.baseReconnectDelay * Math.pow(1.5, this.reconnectAttempts) + Math.random() * 100,
+      this.maxReconnectDelay
+    );
+
+    console.log(`🚨 RECONEXIÓN CRÍTICA en ${Math.round(delay)}ms (intento ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+    
+    setTimeout(() => {
+      if (this.isConnected && this.circuitBreakerState !== 'OPEN') {
+        this.connectWebSocket();
+      }
+    }, delay);
+    
+    this.reconnectAttempts++;
+  }
+
+  /**
+   * 🚨 CIRCUIT BREAKER PARA SISTEMA CRÍTICO
+   */
+  private enableCriticalCircuitBreaker(): void {
+    this.circuitBreakerState = 'OPEN';
+    console.log('🔴 Circuit breaker crítico activado - pausando intentos de reconexión');
+    
+    setTimeout(() => {
+      this.circuitBreakerState = 'HALF_OPEN';
+      this.circuitBreakerFailures = 0;
+      this.reconnectAttempts = 0;
+      console.log('🟡 Circuit breaker crítico en estado HALF_OPEN - probando conexión');
+      if (this.isConnected) {
+        this.connectWebSocket();
+      }
+    }, this.circuitBreakerTimeout);
+  }
+
+  /**
+   * 🚨 BUFFER DE EVENTOS CRÍTICOS DURANTE DESCONEXIONES
+   */
+  private addToCriticalBuffer(event: UnifiEvent): void {
+    this.criticalEventBuffer.push({
+      ...event,
+      bufferedAt: new Date(),
+      isBuffered: true
+    } as any);
+
+    // Mantener solo los eventos más recientes
+    if (this.criticalEventBuffer.length > this.maxBufferSize) {
+      this.criticalEventBuffer = this.criticalEventBuffer.slice(-this.maxBufferSize);
+    }
+
+    console.log(`📦 Evento crítico buffereado: ${event.type} desde ${event.camera.name} (buffer: ${this.criticalEventBuffer.length}/${this.maxBufferSize})`);
+  }
+
+  /**
+   * 🚨 PROCESAR EVENTOS BUFFEREADOS AL RECONECTAR
+   */
+  private processBufferedEvents(): void {
+    if (this.criticalEventBuffer.length > 0) {
+      console.log(`🔄 Procesando ${this.criticalEventBuffer.length} eventos críticos buffereados...`);
+      
+      this.criticalEventBuffer.forEach(event => {
+        if (this.eventCallback) {
+          console.log(`📤 Reenviando evento crítico: ${event.type} desde ${event.camera.name}`);
+          this.eventCallback(event);
+        }
+      });
+      
+      this.criticalEventBuffer = [];
+      console.log('✅ Todos los eventos críticos buffereados procesados');
+    }
+  }
+
+  /**
+   * 🚨 VERIFICAR SALUD DE CONEXIÓN CRÍTICA
+   */
+  public isConnectionHealthy(): boolean {
+    return this.isConnected && 
+           this.isHeartbeatHealthy && 
+           this.wsClient?.readyState === WebSocket.OPEN &&
+           this.circuitBreakerState === 'CLOSED';
+  }
+
+  /**
+   * 🚨 OBTENER ESTADO CRÍTICO DE CONEXIÓN
+   */
+  public getCriticalStatus(): any {
+    return {
+      isConnected: this.isConnected,
+      isHeartbeatHealthy: this.isHeartbeatHealthy,
+      wsState: this.wsClient?.readyState,
+      circuitBreakerState: this.circuitBreakerState,
+      reconnectAttempts: this.reconnectAttempts,
+      bufferedEvents: this.criticalEventBuffer.length,
+      lastPongReceived: new Date(this.lastPongReceived).toISOString(),
+      timeSinceLastPong: Date.now() - this.lastPongReceived
+    };
   }
 
   // ----------------------------------------------------------------------
@@ -734,7 +953,7 @@ private getEventDescription(event: UnifiProtectEvent): string {
       const response = await this.httpClient.get(`/proxy/protect/integration/v1/cameras/${cameraId}`);
       return response.data;
     } catch (error) {
-      console.error(`❌ Error obteniendo detalles de cámara ${cameraId}:`, error);
+      console.error(`❌ Error getting camera details ${cameraId}:`, error);
       return null;
     }
   }
@@ -747,7 +966,7 @@ private getEventDescription(event: UnifiProtectEvent): string {
       });
       return Buffer.from(response.data);
     } catch (error) {
-      console.error(`❌ Error obteniendo snapshot de cámara ${cameraId}:`, error);
+      console.error(`❌ Error getting camera snapshot ${cameraId}:`, error);
       return null;
     }
   }
