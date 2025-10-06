@@ -443,11 +443,11 @@ class PopupController {
 
   getEventTypeLabel(eventType) {
     const labels = {
-      'motion': 'Movimiento',
-      'person': 'Persona',
+      'motion': 'Motion',
+      'person': 'Person',
       'vehicle': 'Vehicle',
-      'package': 'Paquete',
-      'doorbell': 'Timbre',
+      'package': 'Package',
+      'doorbell': 'Doorbell',
       'smart_detect': 'Smart Detect',
       'sensor': 'Sensor'
     };
