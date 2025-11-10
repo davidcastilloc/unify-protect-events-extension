@@ -27,7 +27,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",
-    "winston": "^3.11.0",
+    "winston": "^3.18.3",
     "ws": "^8.14.2"
   },
   "devDependencies": {
